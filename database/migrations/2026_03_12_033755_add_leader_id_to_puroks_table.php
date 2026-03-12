@@ -11,12 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('roles', function (Blueprint $table) {
-            $table->id();
-            $table->string('role_name')->unique();
-            $table->text('description')->nullable();
-            $table->timestamps();
-            $table->softDeletes();
+        Schema::table('puroks', function (Blueprint $table) {
+            $table->foreignUuid('leader_id')->nullable()->constrained('residents');
         });
     }
 
@@ -25,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('roles');
+        Schema::table('puroks', function (Blueprint $table) {
+            //
+        });
     }
 };

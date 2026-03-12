@@ -11,12 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('roles', function (Blueprint $table) {
+        Schema::create('households', function (Blueprint $table) {
             $table->id();
-            $table->string('role_name')->unique();
-            $table->text('description')->nullable();
+            $table->foreignId('purok_id')->constrained('puroks')->onDelete('cascade');
+            $table->string('house_number');
+            $table->string('street');
+            $table->integer('family_size');
             $table->timestamps();
-            $table->softDeletes();
         });
     }
 
@@ -25,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('roles');
+        Schema::dropIfExists('households');
     }
 };

@@ -2,6 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Models\Household;
+use App\Models\Purok;
+use App\Models\Resident;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -35,5 +38,13 @@ class DatabaseSeeder extends Seeder
         }
 
         User::factory(5)->create();
+
+        Purok::factory()->create([
+            'purok_name' => 'Purok 2',
+        ]);
+
+        Household::factory(5)->create();
+
+        Resident::factory(5)->create();
     }
 }
