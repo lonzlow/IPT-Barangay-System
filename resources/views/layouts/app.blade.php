@@ -216,6 +216,7 @@
         }
 
         .avatar {
+            text-decoration: none;
             width: 34px;
             height: 34px;
             border-radius: 50%;
@@ -238,7 +239,6 @@
 
         .page-body {
             padding: 28px;
-            position: relative;
         }
 
         /* ── SHARED COMPONENTS ── */
@@ -375,6 +375,26 @@
             margin-bottom: 14px;
         }
 
+        /* Breeze profile inputs */
+
+        .profile-form input,
+        .profile-form textarea {
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 14px;
+            background: #fff;
+            transition: border .15s, box-shadow .15s;
+        }
+
+        .profile-form input:focus,
+        .profile-form textarea:focus {
+            border-color: #94a3b8;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(148, 163, 184, .15);
+        }
+
         /* ── RESPONSIVE ── */
         @media (max-width: 991.98px) {
             #sidebar {
@@ -474,13 +494,13 @@
         </div>
 
         <div class="sidebar-footer">
-            <div class="d-flex align-items-center gap-2">
+            <a href="{{ route('profile.edit') }}" class="d-flex align-items-center gap-2" style="text-decoration:none;">
                 <div class="avatar">AB</div>
                 <div>
                     <div style="font-size:12px;font-weight:600;color:#cbd5e1;">Admin Barangay</div>
                     <div style="font-size:11px;color:#475569;">Administrator</div>
                 </div>
-            </div>
+            </a>
         </div>
     </nav>
 
@@ -500,7 +520,7 @@
         <div class="topbar-actions ms-auto">
             <button class="btn-icon" title="Notifications"><i class="bi bi-bell"></i></button>
             <button class="btn-icon" title="Help"><i class="bi bi-question-circle"></i></button>
-            <div class="avatar" title="Admin Barangay">AB</div>
+            <a href="{{ route('profile.edit') }}" class="avatar" title="Admin Barangay">AB</a>
         </div>
     </header>
 
@@ -515,12 +535,6 @@
     <script>
         document.getElementById('sidebarToggle')?.addEventListener('click', () => {
             document.getElementById('sidebar').classList.toggle('show');
-        });
-
-        document.addEventListener('click', (event) => {
-            if (!event.target.closest('#sidebar') && !event.target.closest('#sidebarToggle')) {
-                document.getElementById('sidebar').classList.remove('show');
-            }
         });
     </script>
 
