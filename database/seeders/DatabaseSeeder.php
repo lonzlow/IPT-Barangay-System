@@ -2,6 +2,10 @@
 
 namespace Database\Seeders;
 
+use App\Models\Household;
+use App\Models\Purok;
+use App\Models\Resident;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -15,11 +19,32 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
 
-        User::factory()->create([
+        /* User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
+        ]); */
+
+        $roles = [
+                'Admin', 'Punong Barangay', 'Secretary', 'Treasurer', 'Kagawad',
+                'SK Chair', 'Tanod', 'BHW', 'BDRRM Coordinator', 'Encoder',
+                'Auditor', 'Guest',
+        ];
+
+        foreach($roles as $role) {
+            Role::factory()->create([
+                'role_name' => $role,
+            ]);
+        }
+
+        User::factory(5)->create();
+
+        Purok::factory()->create([
+            'purok_name' => 'Purok 2',
         ]);
+
+        Household::factory(5)->create();
+
+        Resident::factory(5)->create();
     }
 }

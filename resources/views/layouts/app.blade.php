@@ -495,7 +495,9 @@
 
         <div class="sidebar-footer">
             <a href="{{ route('profile.edit') }}" class="d-flex align-items-center gap-2" style="text-decoration:none;">
-                <div class="avatar">AB</div>
+                <div class="avatar">
+                    {{ Auth::user()->initials() }}
+                </div>
                 <div>
                     <div style="font-size:12px;font-weight:600;color:#cbd5e1;">Admin Barangay</div>
                     <div style="font-size:11px;color:#475569;">Administrator</div>
@@ -512,7 +514,7 @@
         <div>
             <div class="topbar-title">@yield('page-title', 'Dashboard')</div>
             <div class="topbar-breadcrumb">
-                <span>Barangay Uno</span>
+                <span>Barangay New Era</span>
                 <span class="bc-sep">›</span>
                 <span class="bc-current">@yield('page-title', 'Dashboard')</span>
             </div>
@@ -520,7 +522,9 @@
         <div class="topbar-actions ms-auto">
             <button class="btn-icon" title="Notifications"><i class="bi bi-bell"></i></button>
             <button class="btn-icon" title="Help"><i class="bi bi-question-circle"></i></button>
-            <a href="{{ route('profile.edit') }}" class="avatar" title="Admin Barangay">AB</a>
+            <a href="{{ route('profile.edit') }}" class="avatar" title="Admin Barangay">
+                {{ Auth::user()->initials() }}
+            </a>
         </div>
     </header>
 
