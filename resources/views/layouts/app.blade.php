@@ -66,6 +66,16 @@
         .sidebar-nav .nav-link.disabled-link { opacity: .35; pointer-events: none; cursor: default; }
 
         .sidebar-footer { padding: 14px 16px; border-top: 1px solid rgba(255,255,255,.07); flex-shrink: 0; }
+        .sidebar-footer .logout-btn {
+            width: 100%; margin-top: 10px; border: 0; border-radius: 8px;
+            background: rgba(255,255,255,.06); color: #cbd5e1;
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px; font-size: 13.5px; font-weight: 500;
+            transition: all .18s;
+        }
+        .sidebar-footer .logout-btn:hover {
+            background: rgba(255,255,255,.1); color: #fff;
+        }
 
         /* ── TOPBAR ── */
         #topbar {
@@ -208,13 +218,28 @@
     </div>
 
     <div class="sidebar-footer">
+        @php
+            $user = auth()->user();
+            $displayName = trim(($user->first_name ?? '').' '.($user->last_name ?? ''));
+            $initials = collect([
+                $user->first_name ?? '',
+                $user->last_name ?? '',
+            ])->filter()->map(fn ($part) => strtoupper(substr($part, 0, 1)))->implode('');
+        @endphp
         <div class="d-flex align-items-center gap-2">
-            <div class="avatar">AB</div>
+            <div class="avatar">{{ $initials ?: 'U' }}</div>
             <div>
-                <div style="font-size:12px;font-weight:600;color:#cbd5e1;">Admin Barangay</div>
-                <div style="font-size:11px;color:#475569;">Administrator</div>
+                <div style="font-size:12px;font-weight:600;color:#cbd5e1;">{{ $displayName ?: 'User' }}</div>
+                <div style="font-size:11px;color:#475569;">{{ $user?->role?->role_name ?? 'Authenticated User' }}</div>
             </div>
         </div>
+        <form method="POST" action="{{ route('logout') }}">
+            @csrf
+            <button type="submit" class="logout-btn">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Logout</span>
+            </button>
+        </form>
     </div>
 </nav>
 

@@ -26,15 +26,22 @@ class DatabaseSeeder extends Seeder
         ]); */
 
         $roles = [
-                'Admin', 'Punong Barangay', 'Secretary', 'Treasurer', 'Kagawad',
-                'SK Chair', 'Tanod', 'BHW', 'BDRRM Coordinator', 'Encoder',
-                'Auditor', 'Guest',
+                'Admin', 
+                'Punong Barangay', 
+                'Barangay Secretary', 
+                'Barangay Treasurer', 
+                'Kagawad',
+                'SK Chairperson', 
+                'Barangay Tanod', 
+                'Health Worker / BHW', 
+                'BDRRM Coordinator', 
+                'Encoder / Data Entry Clerk',
+                'Auditor',
+                'Guest'
         ];
 
-        foreach($roles as $role) {
-            Role::factory()->create([
-                'role_name' => $role,
-            ]);
+        foreach ($roles as $roleName) {
+            Role::firstOrCreate(['role_name' => $roleName]);
         }
 
         User::factory(5)->create();
