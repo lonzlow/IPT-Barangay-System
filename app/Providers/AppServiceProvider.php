@@ -45,6 +45,6 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('reports.view', fn (User $u) => $u->hasAnyRole(array_merge($captain, $admin, $secretary, $treasurer, $auditor)));
         Gate::define('users.view', fn (User $u) => $u->hasAnyRole(array_merge($captain, $admin, $secretary, $auditor)));
 
-        Gate::define('documents.approve', fn (User $u) => $u->hasAnyRole($captain, $admin));
+        Gate::define('documents.approve', fn (User $u) => $u->hasAnyRole(array_merge($captain, $admin)));
     }
 }

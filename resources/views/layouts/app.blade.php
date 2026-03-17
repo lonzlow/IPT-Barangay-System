@@ -156,64 +156,92 @@
 
     <div class="sidebar-nav">
 
-        <div class="nav-label">Main</div>
-        <a href="{{ route('dashboard') }}"
-           class="nav-link {{ Request::routeIs('dashboard') ? 'active' : '' }}">
-            <i class="bi bi-speedometer2"></i> Dashboard
-        </a>
+        @can('residents.view')
+            <div class="nav-label">Main</div>
+            <a href="{{ route('dashboard') }}"
+               class="nav-link {{ Request::routeIs('dashboard') ? 'active' : '' }}">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+        @endcan
 
-        <div class="nav-label mt-2">Modules</div>
+        @canany([
+            'residents.view',
+            'documents.view',
+            'blotter.view',
+            'households.view',
+            'business.view',
+            'officials.view',
+            'committees.view'
+        ])
+            <div class="nav-label mt-2">Modules</div>
 
-        <a href="{{ route('residents.index') }}"
-           class="nav-link {{ Request::routeIs('residents.*') ? 'active' : '' }}">
-            <i class="bi bi-people-fill"></i> Residents
-        </a>
+            @can('residents.view')
+                <a href="{{ route('residents.index') }}"
+                   class="nav-link {{ Request::routeIs('residents.*') ? 'active' : '' }}">
+                    <i class="bi bi-people-fill"></i> Residents
+                </a>
+            @endcan
 
-        <a href="{{ route('documents.index') }}"
-           class="nav-link {{ Request::routeIs('documents.*') ? 'active' : '' }}">
-            <i class="bi bi-file-earmark-text-fill"></i> Document Issuance
-        </a>
+            @can('documents.view')
+                <a href="{{ route('documents.index') }}"
+                   class="nav-link {{ Request::routeIs('documents.*') ? 'active' : '' }}">
+                    <i class="bi bi-file-earmark-text-fill"></i> Document Issuance
+                </a>
+            @endcan
 
-        <a href="{{ route('blotter.index') }}"
-           class="nav-link {{ Request::routeIs('blotter.*') ? 'active' : '' }}">
-            <i class="bi bi-journal-text"></i> Blotter
-        </a>
+            @can('blotter.view')
+                <a href="{{ route('blotter.index') }}"
+                   class="nav-link {{ Request::routeIs('blotter.*') ? 'active' : '' }}">
+                    <i class="bi bi-journal-text"></i> Blotter
+                </a>
+            @endcan
 
-        <a href="{{ route('households.index') }}"
-           class="nav-link {{ Request::routeIs('households.*') ? 'active' : '' }}">
-            <i class="bi bi-house-heart-fill"></i> Households & Purok
-        </a>
+            @can('households.view')
+                <a href="{{ route('households.index') }}"
+                   class="nav-link {{ Request::routeIs('households.*') ? 'active' : '' }}">
+                    <i class="bi bi-house-heart-fill"></i> Households & Purok
+                </a>
+            @endcan
 
-        <a href="{{ route('business.index') }}"
-           class="nav-link {{ Request::routeIs('business.*') ? 'active' : '' }}">
-            <i class="bi bi-shop-window"></i> Business Permits
-        </a>
+            @can('business.view')
+                <a href="{{ route('business.index') }}"
+                   class="nav-link {{ Request::routeIs('business.*') ? 'active' : '' }}">
+                    <i class="bi bi-shop-window"></i> Business Permits
+                </a>
+            @endcan
 
-        <a href="{{ route('officials.index') }}"
-           class="nav-link {{ Request::routeIs('officials.*') ? 'active' : '' }}">
-            <i class="bi bi-shield-fill-check"></i> Officials & Staff
-        </a>
+            @can('officials.view')
+                <a href="{{ route('officials.index') }}"
+                   class="nav-link {{ Request::routeIs('officials.*') ? 'active' : '' }}">
+                    <i class="bi bi-shield-fill-check"></i> Officials & Staff
+                </a>
+            @endcan
 
-        <a href="{{ route('committees.index') }}"
-           class="nav-link {{ Request::routeIs('committees.*') ? 'active' : '' }}">
-            <i class="bi bi-people-fill"></i> Committees
-        </a>
+            @can('committees.view')
+                <a href="{{ route('committees.index') }}"
+                   class="nav-link {{ Request::routeIs('committees.*') ? 'active' : '' }}">
+                    <i class="bi bi-people-fill"></i> Committees
+                </a>
+            @endcan
+        @endcanany
 
-        <div class="nav-label mt-2">System</div>
+        @canany(['reports.view', 'users.view'])
+            <div class="nav-label mt-2">System</div>
 
-        <a href="{{ route('reports.index') }}"
-           class="nav-link {{ Request::routeIs('reports.*') ? 'active' : '' }}">
-            <i class="bi bi-bar-chart-fill"></i> Reports & Analytics
-        </a>
+            @can('reports.view')
+                <a href="{{ route('reports.index') }}"
+                   class="nav-link {{ Request::routeIs('reports.*') ? 'active' : '' }}">
+                    <i class="bi bi-bar-chart-fill"></i> Reports & Analytics
+                </a>
+            @endcan
 
-        <a href="{{ route('users.index') }}"
-           class="nav-link {{ Request::routeIs('users.*') ? 'active' : '' }}">
-            <i class="bi bi-person-lock"></i> User Management
-        </a>
-
-        <a href="#" class="nav-link disabled-link">
-            <i class="bi bi-gear-fill"></i> Settings
-        </a>
+            @can('users.view')
+                <a href="{{ route('users.index') }}"
+                   class="nav-link {{ Request::routeIs('users.*') ? 'active' : '' }}">
+                    <i class="bi bi-person-lock"></i> User Management
+                </a>
+            @endcan
+        @endcanany
 
     </div>
 
