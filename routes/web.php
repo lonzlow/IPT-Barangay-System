@@ -1,9 +1,12 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ResidentController;
+use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn() => auth()->check()
+Route::get('/', fn() => Auth::check()
     ? redirect()->route('dashboard')
     : redirect()->route('login'));
 
@@ -12,23 +15,28 @@ Route::get('/dashboard', fn() => redirect()->route('residents.index'))
     ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/residents', fn() => view('residents'))
-        ->middleware('can:residents.view')
-        ->name('residents.index');
 
-    Route::get('/documents', fn() => view('documents'))
+    // RESIDENTS ROUTE
+    Route::resource('/residents', ResidentController::class);
+    Route::get('/residents/data', [ResidentController::class, 'getResidents'])->name('residents.data');
+
+    // USERS ROUTE
+    Route::get('/users/data', [UserController::class, 'getUsers'])->name('users.data');
+    Route::resource('/users', UserController::class);
+
+    Route::get('/documents', fn() => view('documents.index'))
         ->middleware('can:documents.view')
         ->name('documents.index');
 
-    Route::get('/blotter', fn() => view('blotter'))
+    Route::get('/blotter', fn() => view('blotters.index'))
         ->middleware('can:blotter.view')
         ->name('blotter.index');
 
-    Route::get('/households', fn() => view('households'))
+    Route::get('/households', fn() => view('households_and_puroks.households'))
         ->middleware('can:households.view')
         ->name('households.index');
 
-    Route::get('/business', fn() => view('business'))
+    Route::get('/business', fn() => view('businesses.index'))
         ->middleware('can:business.view')
         ->name('business.index');
 
@@ -43,10 +51,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/reports', fn() => view('reports'))
         ->middleware('can:reports.view')
         ->name('reports.index');
-
-    Route::get('/users', fn() => view('users'))
-        ->middleware('can:users.view')
-        ->name('users.index');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

@@ -35,6 +35,13 @@ class ConfirmablePasswordController extends Controller
 
         $request->session()->put('auth.password_confirmed_at', time());
 
+        // Update last_accessed timestamp
+        $request->user()->update([
+            'last_accessed' => now(),
+            'status' => 'Active',
+        ]);
+
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 }
