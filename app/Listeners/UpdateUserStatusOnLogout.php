@@ -2,6 +2,7 @@
 
 namespace App\Listeners;
 
+use App\Models\ActivityLog;
 use Illuminate\Auth\Events\Logout as EventsLogout;
 
 class UpdateUserStatusOnLogout
@@ -19,6 +20,12 @@ class UpdateUserStatusOnLogout
      */
     public function handle(EventsLogout $event): void
     {
+        ActivityLog::create([
+            'user_id' => $event->user->id,
+            'action' => 'Logout',
+            'module' => 'Authentication',
+        ]);
+
         $event->user->update([
             'status' => 'Inactive',
         ]);

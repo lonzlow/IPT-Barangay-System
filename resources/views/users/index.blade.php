@@ -80,25 +80,29 @@
     <div class="col-6 col-xl-3">
         <div class="stat-card d-flex align-items-center gap-3">
             <div class="stat-icon si-blue"><i class="bi bi-people-fill"></i></div>
-            <div><div class="stat-value">14</div><div class="stat-label">Total System Users</div></div>
+            <div><div class="stat-value">{{ $total_users }}</div>
+            <div class="stat-label">Total System Users</div></div>
         </div>
     </div>
     <div class="col-6 col-xl-3">
         <div class="stat-card d-flex align-items-center gap-3">
             <div class="stat-icon si-violet"><i class="bi bi-shield-lock-fill"></i></div>
-            <div><div class="stat-value">2</div><div class="stat-label">Administrators</div></div>
+            <div><div class="stat-value">{{ $total_admins }}</div>
+            <div class="stat-label">Administrators</div></div>
         </div>
     </div>
     <div class="col-6 col-xl-3">
         <div class="stat-card d-flex align-items-center gap-3">
             <div class="stat-icon si-green"><i class="bi bi-person-check-fill"></i></div>
-            <div><div class="stat-value">3</div><div class="stat-label">Active Right Now</div><span class="stat-badge badge-online">Online</span></div>
+            <div><div class="stat-value">{{ $active_users }}</div>
+            <div class="stat-label">Active Right Now</div><span class="stat-badge badge-online">Online</span></div>
         </div>
     </div>
     <div class="col-6 col-xl-3">
         <div class="stat-card d-flex align-items-center gap-3">
             <div class="stat-icon si-amber"><i class="bi bi-activity"></i></div>
-            <div><div class="stat-value">128</div><div class="stat-label">Actions Today</div></div>
+            <div><div class="stat-value">{{ $total_actions_today }}</div>
+            <div class="stat-label">Actions Today</div></div>
         </div>
     </div>
 </div>

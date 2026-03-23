@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -10,7 +12,15 @@ class UserController extends Controller
 {
     public function index()
     {
-        return view('users.index');
+        $total_users = User::all()->count();
+        $active_users = User::where('status', '=', 'Active')->count();
+        $total_admins = User::where('role_id', '=', 1)->count(); // Role id 1 should always be admin
+        $total_actions_today = ActivityLog::whereBetween('created_at', [
+            Carbon::today()->startOfDay(),
+            Carbon::today()->endOfDay(),
+        ])->count();
+
+        return view('users.index', compact('total_users', 'active_users', 'total_admins', 'total_actions_today'));
     }
 
     public function create()
