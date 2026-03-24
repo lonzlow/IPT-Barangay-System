@@ -17,8 +17,8 @@ Route::get('/dashboard', fn() => redirect()->route('residents.index'))
 Route::middleware('auth')->group(function () {
 
     // RESIDENTS ROUTE
-    Route::resource('/residents', ResidentController::class);
     Route::get('/residents/data', [ResidentController::class, 'getResidents'])->name('residents.data');
+    Route::resource('/residents', ResidentController::class);
 
     // USERS ROUTE
     Route::get('/users/data', [UserController::class, 'getUsers'])->name('users.data');

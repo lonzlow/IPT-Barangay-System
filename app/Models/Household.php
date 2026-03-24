@@ -26,7 +26,7 @@ class Household extends Model
 
     public function head_resident(): BelongsTo
     {
-        return $this->belongsTo(Resident::class);
+        return $this->belongsTo(Resident::class, 'head_resident_id');
     }
 
     public function purok(): BelongsTo

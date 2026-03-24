@@ -170,79 +170,23 @@
         </button>
     </div>
     <div class="table-responsive">
-        <table class="table table-hover mb-0">
+        <table class="display" id="residents-table"> {{-- table table-hover mb-0 --}}
             <thead>
                 <tr>
-                    <th style="width:40px;"><input type="checkbox" class="form-check-input"></th>
-                    <th>Resident</th>
-                    <th>Age</th>
+                    <th>ID</th>
+                    <th>First Name</th>
+                    <th>M.I.</th>
+                    <th>Last Name</th>
+                    <th>Suffix</th>
+                    <th>Email</th>
+                    <th>Contact No.</th>
                     <th>Gender</th>
                     <th>Address / Purok</th>
                     <th>Voter</th>
                     <th>Status</th>
-                    <th style="width:100px;">Actions</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
-            <tbody>
-                @php
-                $rows = [
-                    ['Maria Santos',   28, 'F', 'Purok 3 – Mabini St.',  true,  'active'],
-                    ['Juan dela Cruz', 45, 'M', 'Purok 1 – Rizal Ave.',  true,  'active'],
-                    ['Ana Reyes',      72, 'F', 'Purok 5 – Gen. Luna',   true,  'active'],
-                    ['Pedro Bautista', 60, 'M', 'Purok 2 – Mabini St.',  false, 'deceased'],
-                    ['Luz Villanueva', 34, 'F', 'Purok 4 – Bonifacio',   true,  'transfer'],
-                    ['Carlo Mendoza',  19, 'M', 'Purok 1 – Aguinaldo',   false, 'active'],
-                    ['Rosa Aquino',    55, 'F', 'Purok 3 – Mabini St.',  true,  'active'],
-                    ['Ernesto Lim',    38, 'M', 'Purok 6 – Rizal Ave.',  true,  'active'],
-                ];
-                $statusMap = [
-                    'active'   => ['badge-active',   'Active'],
-                    'deceased' => ['badge-deceased', 'Deceased'],
-                    'transfer' => ['badge-transfer', 'Transferred'],
-                ];
-                @endphp
-                @foreach($rows as $r)
-                @php
-                    [$name, $age, $sex, $addr, $voter, $status] = array_values($r);
-                    $initials   = collect(explode(' ', $name))->map(fn($w) => $w[0])->take(2)->implode('');
-                    [$bc, $bl]  = $statusMap[$status];
-                    $avatarClass = $sex === 'F' ? 'ra-f' : 'ra-m';
-                @endphp
-                <tr>
-                    <td><input type="checkbox" class="form-check-input"></td>
-                    <td>
-                        <div class="d-flex align-items-center gap-2">
-                            <div class="res-avatar {{ $avatarClass }}">{{ $initials }}</div>
-                            <span style="font-weight:600;">{{ $name }}</span>
-                        </div>
-                    </td>
-                    <td>{{ $age }}</td>
-                    <td>{{ $sex === 'M' ? 'Male' : 'Female' }}</td>
-                    <td style="font-size:13px;color:#64748b;">{{ $addr }}</td>
-                    <td>
-                        @if($voter)
-                            <i class="bi bi-check-circle-fill text-success"></i>
-                        @else
-                            <i class="bi bi-dash-circle text-secondary"></i>
-                        @endif
-                    </td>
-                    <td><span class="status-badge {{ $bc }}">{{ $bl }}</span></td>
-                    <td>
-                        <div class="d-flex gap-1">
-                            <button class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="View">
-                                <i class="bi bi-eye" style="font-size:13px;"></i>
-                            </button>
-                            <button class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Edit">
-                                <i class="bi bi-pencil" style="font-size:13px;"></i>
-                            </button>
-                            <button class="btn btn-sm btn-light text-danger" style="border-radius:6px;padding:3px 8px;" title="Delete">
-                                <i class="bi bi-trash" style="font-size:13px;"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-                @endforeach
-            </tbody>
         </table>
     </div>
     <div class="d-flex align-items-center justify-content-between px-4 py-3"
@@ -263,42 +207,80 @@
 @endsection
 
 @section('scripts')
-<script>
-new Chart(document.getElementById('genderChart'), {
-    type: 'doughnut',
-    data: {
-        labels: ['Male', 'Female', 'Other'],
-        datasets: [{ data: [2310, 2180, 13], backgroundColor: ['#1a56db','#f472b6','#94a3b8'], borderWidth: 0, hoverOffset: 6 }]
-    },
-    options: {
-        cutout: '68%', maintainAspectRatio: false,
-        plugins: { legend: { display: true, position: 'bottom', labels: { font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 }, boxWidth: 10, padding: 14 } } }
-    }
-});
+    <script>
+        new Chart(document.getElementById('genderChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Male', 'Female', 'Other'],
+                datasets: [{ data: [2310, 2180, 13], backgroundColor: ['#1a56db','#f472b6','#94a3b8'], borderWidth: 0, hoverOffset: 6 }]
+            },
+            options: {
+                cutout: '68%', maintainAspectRatio: false,
+                plugins: { legend: { display: true, position: 'bottom', labels: { font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 }, boxWidth: 10, padding: 14 } } }
+            }
+        });
 
-new Chart(document.getElementById('ageChart'), {
-    type: 'bar',
-    data: {
-        labels: ['0–12','13–17','18–24','25–34','35–49','50–64','65+'],
-        datasets: [{ label: 'Residents', data: [620,410,590,840,970,760,631], backgroundColor: '#1a56db', borderRadius: 6, borderSkipped: false }]
-    },
-    options: {
-        maintainAspectRatio: false,
-        scales: {
-            x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-            y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } }
-        },
-        plugins: { legend: { display: false } }
-    }
-});
+        new Chart(document.getElementById('ageChart'), {
+            type: 'bar',
+            data: {
+                labels: ['0–12','13–17','18–24','25–34','35–49','50–64','65+'],
+                datasets: [{ label: 'Residents', data: [620,410,590,840,970,760,631], backgroundColor: '#1a56db', borderRadius: 6, borderSkipped: false }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                    y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
 
-new Chart(document.getElementById('voterChart'), {
-    type: 'doughnut',
-    data: {
-        labels: ['Registered','Not Registered'],
-        datasets: [{ data: [2850, 820], backgroundColor: ['#1a56db','#e2e8f0'], borderWidth: 0, hoverOffset: 4 }]
-    },
-    options: { cutout: '72%', maintainAspectRatio: false, plugins: { legend: { display: false } } }
-});
-</script>
+        new Chart(document.getElementById('voterChart'), {
+            type: 'doughnut',
+            data: {
+                labels: ['Registered','Not Registered'],
+                datasets: [{ data: [2850, 820], backgroundColor: ['#1a56db','#e2e8f0'], borderWidth: 0, hoverOffset: 4 }]
+            },
+            options: { cutout: '72%', maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+
+        /*
+
+                    <th>ID</th>
+                    <th>First Name</th>
+                    <th>M.I.</th>
+                    <th>Last Name</th>
+                    <th>Suffix</th>
+                    <th>Email</th>
+                    <th>Gender</th>
+                    <th>Address / Purok</th>
+                    <th>Voter</th>
+                    <th>Status</th>
+                    <th style="width:100px;">Actions</th>
+        */
+
+        // YAJRA RESIDENTS TABLE
+        $(document).ready(function () {
+            $('#residents-table').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: "{{ route('residents.data') }}",
+                columns: [
+                    {data: 'id', name: 'id'},
+                    {data: 'first_name', name: 'first_name'},
+                    {data: 'middle_name', name: 'middle_name'},
+                    {data: 'last_name', name: 'last_name'},
+                    {data: 'suffix', name: 'suffix'},
+                    {data: 'email', name: 'email'},
+                    {data: 'contact_number', name: 'contact_number'},
+                    {data: 'gender', name: 'gender'},
+                    {data: 'household_purok', name: 'household_purok'},
+                    {data: 'voter', name: 'voter', orderable: false, searchable: false},
+                    {data: 'residency', name: 'residency', orderable: false, searchable: false},
+                    {data: 'action', name: 'action', orderable: false, searchable: false},
+                ]
+            });
+        });
+    </script>
 @endsection

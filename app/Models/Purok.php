@@ -24,6 +24,6 @@ class Purok extends Model
 
     public function leader(): BelongsTo
     {
-        return $this->belongsTo(Resident::class);
+        return $this->belongsTo(Resident::class, 'leader_id');
     }
 }
