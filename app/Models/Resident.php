@@ -42,4 +42,9 @@ class Resident extends Model
     {
         return $this->hasOne(Purok::class);
     }
+
+    public function business_owner(): HasOne
+    {
+        return $this->hasOne(BusinessOwner::class);
+    }
 }
