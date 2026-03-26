@@ -51,11 +51,15 @@
         <h5 class="fw-800 mb-1" style="font-size:18px;">Resident Management</h5>
         <p class="mb-0" style="font-size:13px;color:#64748b;">Manage all registered residents of the barangay.</p>
     </div>
-    <button class="btn btn-primary d-flex align-items-center gap-2"
+    <a href="{{ route('residents.create') }}" class="btn btn-primary d-flex align-items-center gap-2"
             style="border-radius:8px;font-size:13.5px;font-weight:600;padding:9px 18px;">
         <i class="bi bi-person-plus-fill"></i> Add New Resident
-    </button>
+    </a>
 </div>
+
+@if(session('success'))
+    <div class="alert alert-success">{{ session('success') }}</div>
+@endif
 
 {{-- ── STAT WIDGETS ── --}}
 <div class="section-heading">Overview</div>

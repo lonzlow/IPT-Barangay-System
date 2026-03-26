@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Household;
 use App\Models\Resident;
 use Illuminate\Http\Request;
-use Yajra\DataTables\DataTables;
+use Illuminate\Validation\Rule;
+use Yajra\DataTables\Facades\DataTables;
 
 class ResidentController extends Controller
 {
@@ -21,7 +23,9 @@ class ResidentController extends Controller
      */
     public function create()
     {
-        //
+        $households = Household::with('purok')->orderBy('house_number')->get();
+
+        return view('residents.create', compact('households'));
     }
 
     /**
@@ -29,7 +33,26 @@ class ResidentController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_name' => ['nullable', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'suffix' => ['nullable', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:residents,email'],
+            'contact_number' => ['required', 'string', 'max:255'],
+            'birthdate' => ['required', 'date'],
+            'gender' => ['required', Rule::in(['Male', 'Female', 'Other'])],
+            'civil_status' => ['required', Rule::in(['Single', 'Married', 'Widowed', 'Separated', 'Divorced'])],
+            'voter_status' => ['required', Rule::in(['Registered', 'Unregistered', 'Suspended'])],
+            'residency_status' => ['required', Rule::in(['Active', 'Deceased', 'Transferred'])],
+            'household_id' => ['required', 'exists:households,id'],
+        ]);
+
+        Resident::create($validated);
+
+        return redirect()
+            ->route('residents.index')
+            ->with('success', 'New resident created successfully.');
     }
 
     /**
@@ -45,7 +68,10 @@ class ResidentController extends Controller
      */
     public function edit(string $id)
     {
-        //
+        $resident = Resident::findOrFail($id);
+        $households = Household::with('purok')->orderBy('house_number')->get();
+
+        return view('residents.edit', compact('resident', 'households'));
     }
 
     /**
@@ -53,7 +79,28 @@ class ResidentController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $resident = Resident::findOrFail($id);
+
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_name' => ['nullable', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'suffix' => ['nullable', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('residents', 'email')->ignore($resident->id)],
+            'contact_number' => ['required', 'string', 'max:255'],
+            'birthdate' => ['required', 'date'],
+            'gender' => ['required', Rule::in(['Male', 'Female', 'Other'])],
+            'civil_status' => ['required', Rule::in(['Single', 'Married', 'Widowed', 'Separated', 'Divorced'])],
+            'voter_status' => ['required', Rule::in(['Registered', 'Unregistered', 'Suspended'])],
+            'residency_status' => ['required', Rule::in(['Active', 'Deceased', 'Transferred'])],
+            'household_id' => ['required', 'exists:households,id'],
+        ]);
+
+        $resident->update($validated);
+
+        return redirect()
+            ->route('residents.edit', $resident->id)
+            ->with('success', 'Resident updated successfully.');
     }
 
     /**
@@ -61,12 +108,17 @@ class ResidentController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $resident = Resident::findOrFail($id);
+        $resident->delete();
+
+        return redirect()
+            ->route('residents.index')
+            ->with('success', 'Resident deactivated successfully.');
     }
 
     public function getResidents(Request $request)
     {
-        $residents = Resident::query();
+        $residents = Resident::with(['household.purok']);
 
         return DataTables::of($residents)
             ->addColumn('household_purok', function($resident) {
@@ -102,15 +154,15 @@ class ResidentController extends Controller
             })
             ->addColumn('action', function ($resident) {
                 return '<div class="d-flex gap-1">
-                    <button class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Edit">
+                    <a href="'.route('residents.edit', $resident->id).'" class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Edit">
                         <i class="bi bi-pencil" style="font-size:13px;"></i>
-                    </button>
-                    <button class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Assign Role">
+                    </a>
+                    <a href="'.route('residents.edit', ['resident' => $resident->id, 'section' => 'status']).'" class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Update Status">
                         <i class="bi bi-shield-fill" style="font-size:13px;"></i>
-                    </button>
-                    <button class="btn btn-sm btn-light text-danger" style="border-radius:6px;padding:3px 8px;" title="Deactivate">
+                    </a>
+                    <a href="'.route('residents.edit', ['resident' => $resident->id, 'section' => 'deactivate']).'" class="btn btn-sm btn-light text-danger" style="border-radius:6px;padding:3px 8px;" title="Deactivate">
                         <i class="bi bi-person-x-fill" style="font-size:13px;"></i>
-                    </button>
+                    </a>
                 </div>';
             })
             ->rawColumns(['household_purok', 'voter', 'residency', 'action'])

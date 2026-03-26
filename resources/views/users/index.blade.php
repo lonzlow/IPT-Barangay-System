@@ -68,11 +68,15 @@
         <h5 class="fw-800 mb-1" style="font-size:18px;">User Management & Access Control</h5>
         <p class="mb-0" style="font-size:13px;color:#64748b;">Manage system users, roles, permissions, and activity logs.</p>
     </div>
-    <button class="btn btn-primary d-flex align-items-center gap-2"
+    <a href="{{ route('users.create') }}" class="btn btn-primary d-flex align-items-center gap-2"
             style="border-radius:8px;font-size:13.5px;font-weight:600;padding:9px 18px;">
         <i class="bi bi-person-plus-fill"></i> Add New User
-    </button>
+    </a>
 </div>
+
+@if(session('success'))
+    <div class="alert alert-success">{{ session('success') }}</div>
+@endif
 
 {{-- ── STAT WIDGETS ── --}}
 <div class="section-heading">Overview</div>

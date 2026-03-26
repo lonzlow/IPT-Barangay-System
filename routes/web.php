@@ -20,9 +20,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/residents/data', [ResidentController::class, 'getResidents'])->name('residents.data');
     Route::resource('/residents', ResidentController::class);
 
-    // USERS ROUTE
-    Route::get('/users/data', [UserController::class, 'getUsers'])->name('users.data');
-    Route::resource('/users', UserController::class);
+    // USERS ROUTE (ADMIN ONLY)
+    Route::middleware('can:users.view')->group(function () {
+        Route::get('/users/data', [UserController::class, 'getUsers'])->name('users.data');
+        Route::resource('/users', UserController::class);
+    });
 
     Route::get('/documents', fn() => view('documents.index'))
         ->middleware('can:documents.view')

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\Role;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Yajra\DataTables\Facades\DataTables;
 
 class UserController extends Controller
@@ -25,12 +27,37 @@ class UserController extends Controller
 
     public function create()
     {
-        //
+        $roles = Role::orderBy('role_name')->get();
+
+        return view('users.create', compact('roles'));
     }
 
     public function store(Request $request)
     {
-        //
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_name' => ['nullable', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'suffix' => ['nullable', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'role_id' => ['nullable', 'exists:roles,id'],
+        ]);
+
+        User::create([
+            'first_name' => $validated['first_name'],
+            'middle_name' => $validated['middle_name'] ?? null,
+            'last_name' => $validated['last_name'],
+            'suffix' => $validated['suffix'] ?? null,
+            'email' => $validated['email'],
+            'password' => $validated['password'],
+            'role_id' => $validated['role_id'] ?? null,
+            'status' => 'Active',
+        ]);
+
+        return redirect()
+            ->route('users.index')
+            ->with('success', 'New user created successfully.');
     }
 
     public function show(string $id)
@@ -40,18 +67,43 @@ class UserController extends Controller
 
     public function edit(string $id)
     {
-        //
+        $user = User::findOrFail($id);
+        $roles = Role::orderBy('role_name')->get();
+
+        return view('users.edit', compact('user', 'roles'));
     }
 
     public function update(Request $request, string $id)
     {
-        //
+        $user = User::findOrFail($id);
+
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:255'],
+            'middle_name' => ['nullable', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'role_id' => ['nullable', 'exists:roles,id'],
+        ]);
+
+        $user->update($validated);
+
+        return redirect()
+            ->route('users.edit', $user->id)
+            ->with('success', 'User updated successfully.');
     }
 
     // DEACTIVATING THE USER BUT NOT FULLY DELETED
     public function destroy(string $id)
     {
-        //
+        $user = User::findOrFail($id);
+
+        $user->update([
+            'status' => 'Inactive',
+        ]);
+
+        return redirect()
+            ->route('users.index')
+            ->with('success', 'User deactivated successfully.');
     }
 
     public function getUsers(Request $request)
@@ -75,15 +127,15 @@ class UserController extends Controller
             })
             ->addColumn('action', function ($user) {
                 return '<div class="d-flex gap-1">
-                    <button class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Edit">
+                    <a href="'.route('users.edit', $user->id).'" class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Edit">
                         <i class="bi bi-pencil" style="font-size:13px;"></i>
-                    </button>
-                    <button class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Assign Role">
+                    </a>
+                    <a href="'.route('users.edit', ['user' => $user->id, 'section' => 'role']).'" class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Assign Role">
                         <i class="bi bi-shield-fill" style="font-size:13px;"></i>
-                    </button>
-                    <button class="btn btn-sm btn-light text-danger" style="border-radius:6px;padding:3px 8px;" title="Deactivate">
+                    </a>
+                    <a href="'.route('users.edit', ['user' => $user->id, 'section' => 'deactivate']).'" class="btn btn-sm btn-light text-danger" style="border-radius:6px;padding:3px 8px;" title="Deactivate">
                         <i class="bi bi-person-x-fill" style="font-size:13px;"></i>
-                    </button>
+                    </a>
                 </div>';
             })
             ->rawColumns(['status', 'action'])
