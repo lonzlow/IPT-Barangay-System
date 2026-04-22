@@ -16,8 +16,8 @@ class Role extends Model
         'description',
     ];
 
-    public function users(): HasMany
+    public function officials(): HasMany
     {
-        return $this->hasMany(User::class);
+        return $this->hasMany(Official::class);
     }
 }

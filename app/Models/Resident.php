@@ -14,6 +14,7 @@ class Resident extends Model
     use HasFactory, HasUuids, SoftDeletes;
 
     protected $fillable = [
+        'resident_number',
         'first_name',
         'middle_name',
         'last_name',
@@ -22,6 +23,9 @@ class Resident extends Model
         'contact_number',
         'birthdate',
         'gender',
+        'height',
+        'weight',
+        'blood_type',
         'civil_status',
         'voter_status',
         'residency_status',
@@ -46,5 +50,10 @@ class Resident extends Model
     public function business_owner(): HasOne
     {
         return $this->hasOne(BusinessOwner::class);
+    }
+
+    public function official(): HasOne
+    {
+        return $this->hasOne(Official::class);
     }
 }

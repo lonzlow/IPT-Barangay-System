@@ -11,8 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->foreignId('role_id')->nullable()->constrained('roles')->onDelete('cascade');
+        Schema::create('committees', function (Blueprint $table) {
+            $table->id();
+            $table->string('committee_name');
+            $table->text('description')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
         });
     }
 
@@ -21,8 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            //
-        });
+        Schema::dropIfExists('committees');
     }
 };

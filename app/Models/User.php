@@ -22,15 +22,10 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'first_name',
-        'middle_name',
-        'last_name',
-        'suffix',
         'email',
         'password',
         'last_accessed',
         'status',
-        'role_id',
     ];
 
     /**
@@ -57,6 +52,7 @@ class User extends Authenticatable
         ];
     }
 
+    /* ROLE IS NOW ON OFFICIAL TABLE. KINDLY MOVE THIS
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
@@ -71,6 +67,7 @@ class User extends Authenticatable
     {
         return in_array($this->role?->role_name, $roleNames, true);
     }
+        */
 
     public function activity_logs(): HasMany
     {

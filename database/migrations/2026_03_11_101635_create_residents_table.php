@@ -13,6 +13,7 @@ return new class extends Migration
     {
         Schema::create('residents', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->string('resident_number')->unique();
             $table->string('first_name');
             $table->string('middle_name')->nullable();
             $table->string('last_name');
@@ -21,6 +22,9 @@ return new class extends Migration
             $table->string('contact_number');
             $table->date('birthdate');
             $table->enum('gender', ['Male', 'Female', 'Other']);
+            $table->integer('height')->nullable();
+            $table->integer('weight')->nullable();
+            $table->string('blood_type', 2)->nullable();
             $table->enum('civil_status', ['Single', 'Married', 'Widowed', 'Separated', 'Divorced']);
             $table->enum('voter_status', ['Registered', 'Unregistered', 'Suspended']);
             $table->enum('residency_status', ['Active', 'Deceased', 'Transferred']);

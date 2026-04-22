@@ -17,6 +17,10 @@ class ResidentFactory extends Factory
     public function definition(): array
     {
         return [
+            'resident_number' =>
+                'BR' . '-' . str_pad(fake()->unique()->numberBetween(0, 26), 2, '0', STR_PAD_LEFT) . '-' .
+                str_pad(fake()->unique()->numberBetween(0, 9999), 4, '0', STR_PAD_LEFT) . '-' .
+                str_pad(fake()->unique()->numberBetween(0, 9999), 4, '0', STR_PAD_LEFT),
             'first_name' => fake('fil_PH')->firstName(),
             'last_name' => fake('fil_PH')->lastName(),
             'email' => fake()->unique()->safeEmail(),
