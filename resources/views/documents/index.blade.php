@@ -1,11 +1,151 @@
-{{--
-    documents.blade.php
-    Route: GET /documents  →  route('documents.index')
---}}
 @extends('layouts.app')
 
-@section('title', 'Document Issuance – Barangay Management System')
-@section('page-title', 'Document Issuance')
+@section('title', 'Barangay Documents')
+
+@section('content')
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between">
+                <h1 class="fw-bold" style="font-size:28px;">Barangay Documents</h1>
+                <a href="{{ route('documents.create') }}" class="btn btn-primary" style="border-radius:8px;padding:10px 20px;">
+                    <i class="bi bi-plus-circle"></i> Issue New Document
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {{-- Statistics --}}
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card" style="border:1px solid #e2e8f0;border-radius:12px;">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <small style="color:#94a3b8;font-weight:600;">Total Documents</small>
+                            <p class="fw-bold" style="font-size:24px;color:#1e293b;margin:0;">{{ $documents->total() }}</p>
+                        </div>
+                        <i class="bi bi-file-text" style="font-size:32px;color:#1a56db;opacity:0.2;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card" style="border:1px solid #e2e8f0;border-radius:12px;">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <small style="color:#94a3b8;font-weight:600;">Active Documents</small>
+                            <p class="fw-bold" style="font-size:24px;color:#1e293b;margin:0;">
+                                {{ count(array_filter($documents->items(), fn($d) => $d->status === 'Issued')) }}
+                            </p>
+                        </div>
+                        <i class="bi bi-check-circle" style="font-size:32px;color:#10b981;opacity:0.2;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card" style="border:1px solid #e2e8f0;border-radius:12px;">
+                <div class="card-body p-3">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <small style="color:#94a3b8;font-weight:600;">Document Types</small>
+                            <p class="fw-bold" style="font-size:24px;color:#1e293b;margin:0;">{{ $templates->count() }}</p>
+                        </div>
+                        <i class="bi bi-file-earmark-pdf" style="font-size:32px;color:#f59e0b;opacity:0.2;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Documents Table --}}
+    <div class="row">
+        <div class="col-12">
+            <div class="card" style="border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                <div class="card-header" style="background:#f9fafb;border-bottom:1px solid #e2e8f0;border-radius:12px 12px 0 0;padding:16px;">
+                    <h6 class="fw-600 mb-0" style="color:#1e293b;">Recent Documents</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" style="font-size:14px;">
+                            <thead style="background:#f9fafb;border-bottom:1px solid #e2e8f0;">
+                                <tr>
+                                    <th style="padding:12px 16px;color:#64748b;font-weight:600;text-transform:uppercase;font-size:12px;">Reference</th>
+                                    <th style="padding:12px 16px;color:#64748b;font-weight:600;text-transform:uppercase;font-size:12px;">Resident</th>
+                                    <th style="padding:12px 16px;color:#64748b;font-weight:600;text-transform:uppercase;font-size:12px;">Document Type</th>
+                                    <th style="padding:12px 16px;color:#64748b;font-weight:600;text-transform:uppercase;font-size:12px;">Issued Date</th>
+                                    <th style="padding:12px 16px;color:#64748b;font-weight:600;text-transform:uppercase;font-size:12px;">Valid Until</th>
+                                    <th style="padding:12px 16px;color:#64748b;font-weight:600;text-transform:uppercase;font-size:12px;">Status</th>
+                                    <th style="padding:12px 16px;color:#64748b;font-weight:600;text-transform:uppercase;font-size:12px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($documents as $document)
+                                    <tr>
+                                        <td style="padding:12px 16px;">
+                                            <strong>{{ $document->reference_number }}</strong>
+                                        </td>
+                                        <td style="padding:12px 16px;">
+                                            {{ $document->resident->first_name }} {{ $document->resident->last_name }}
+                                        </td>
+                                        <td style="padding:12px 16px;">
+                                            <span class="badge bg-light text-secondary" style="font-size:11px;">
+                                                {{ $document->template->name }}
+                                            </span>
+                                        </td>
+                                        <td style="padding:12px 16px;">
+                                            {{ $document->issued_date->format('M d, Y') }}
+                                        </td>
+                                        <td style="padding:12px 16px;">
+                                            @if($document->valid_until)
+                                                <small>{{ $document->valid_until->format('M d, Y') }}</small>
+                                            @else
+                                                <small style="color:#94a3b8;">No expiration</small>
+                                            @endif
+                                        </td>
+                                        <td style="padding:12px 16px;">
+                                            @if($document->status === 'Issued')
+                                                <span class="badge bg-success">Issued</span>
+                                            @elseif($document->status === 'Revoked')
+                                                <span class="badge bg-danger">Revoked</span>
+                                            @else
+                                                <span class="badge bg-warning">Expired</span>
+                                            @endif
+                                        </td>
+                                        <td style="padding:12px 16px;">
+                                            <div class="d-flex gap-2">
+                                                <a href="{{ route('documents.show', $document->id) }}" class="btn btn-sm btn-outline-primary" style="border-radius:6px;padding:4px 8px;">
+                                                    <i class="bi bi-eye"></i> View
+                                                </a>
+                                                <a href="{{ route('documents.downloadPdf', $document->id) }}" class="btn btn-sm btn-outline-secondary" style="border-radius:6px;padding:4px 8px;">
+                                                    <i class="bi bi-download"></i> Download
+                                                </a>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4" style="color:#94a3b8;">
+                                            <i class="bi bi-inbox" style="font-size:32px;opacity:0.3;display:block;margin-bottom:8px;"></i>
+                                            No documents issued yet. <a href="{{ route('documents.create') }}">Issue your first document</a>
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer" style="background:#f9fafb;border-top:1px solid #e2e8f0;">
+                    {{ $documents->links() }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endsection
+
 
 @section('styles')
 <style>
