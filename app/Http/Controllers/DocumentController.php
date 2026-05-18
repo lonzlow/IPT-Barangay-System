@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Document;
 use App\Models\DocumentTemplate;
 use App\Models\Resident;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Yajra\DataTables\Facades\DataTables;
 
 class DocumentController extends Controller
 {
@@ -20,8 +20,13 @@ class DocumentController extends Controller
             ->paginate(10);
 
         $templates = DocumentTemplate::where('is_active', true)->get();
+        
+        // Get active residents for the modal form
+        $residents = Resident::where('residency_status', 'Active')
+            ->orderBy('last_name')
+            ->get();
 
-        return view('documents.index', compact('documents', 'templates'));
+        return view('documents.index', compact('documents', 'templates', 'residents'));
     }
 
     /**
@@ -77,6 +82,14 @@ class DocumentController extends Controller
             'status' => 'Issued',
         ]);
 
+        // Return JSON for Axios or redirect for traditional forms
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Document issued successfully!',
+                'document' => $document->load(['resident', 'template']),
+            ], 201);
+        }
+
         return redirect()
             ->route('documents.show', $document->id)
             ->with('success', 'Document issued successfully!');
@@ -85,9 +98,13 @@ class DocumentController extends Controller
     /**
      * Display the specified document
      */
-    public function show(Document $document)
+    public function show(Request $request, Document $document)
     {
         $document->load(['resident', 'template']);
+
+        if ($request->expectsJson()) {
+            return response()->json($document);
+        }
 
         return view('documents.show', compact('document'));
     }
@@ -116,6 +133,14 @@ class DocumentController extends Controller
 
         $document->update($validated);
 
+        // Return JSON for Axios or redirect for traditional forms
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Document updated successfully!',
+                'document' => $document->load(['resident', 'template']),
+            ]);
+        }
+
         return redirect()
             ->route('documents.show', $document->id)
             ->with('success', 'Document updated successfully!');
@@ -124,9 +149,16 @@ class DocumentController extends Controller
     /**
      * Delete the specified document
      */
-    public function destroy(Document $document)
+    public function destroy(Request $request, Document $document)
     {
         $document->delete();
+
+        // Return JSON for Axios or redirect for traditional forms
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Document deleted successfully!',
+            ]);
+        }
 
         return redirect()
             ->route('documents.index')
@@ -181,4 +213,41 @@ class DocumentController extends Controller
 
         return view('documents.by-template', compact('template', 'documents'));
     }
+
+    /**
+     * Get documents data for DataTables
+     */
+    public function data()
+    {
+        $documents = Document::with(['resident', 'template'])->latest();
+
+        return DataTables::of($documents)
+            ->addColumn('resident_name', function ($document) {
+                return $document->resident->first_name . ' ' . $document->resident->last_name;
+            })
+            ->addColumn('template_name', function ($document) {
+                return $document->template->name ?? 'N/A';
+            })
+            ->addColumn('issued_date_formatted', function ($document) {
+                return $document->issued_date->format('M d, Y');
+            })
+            ->addColumn('valid_until_formatted', function ($document) {
+                return $document->valid_until ? $document->valid_until->format('M d, Y') : 'No expiration';
+            })
+            ->addColumn('status_badge', function ($document) {
+                $statusClass = match($document->status) {
+                    'Issued' => 'success',
+                    'Revoked' => 'danger',
+                    'Expired' => 'warning',
+                    default => 'secondary'
+                };
+                return '<span class="badge bg-' . $statusClass . '">' . $document->status . '</span>';
+            })
+            ->addColumn('action', function ($document) {
+                return view('documents.partials.actions', compact('document'))->render();
+            })
+            ->rawColumns(['status_badge', 'action'])
+            ->toJson();
+    }
 }
+

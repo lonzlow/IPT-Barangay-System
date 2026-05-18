@@ -12,9 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     <style>
         :root {
@@ -196,8 +194,8 @@
             @endcan
 
             @can('blotter.view')
-                <a href="{{ route('blotter.index') }}"
-                   class="nav-link {{ Request::routeIs('blotter.*') ? 'active' : '' }}">
+                <a href="{{ route('blotters.index') }}"
+                   class="nav-link {{ Request::routeIs('blotters.*') ? 'active' : '' }}">
                     <i class="bi bi-journal-text"></i> Blotter
                 </a>
             @endcan

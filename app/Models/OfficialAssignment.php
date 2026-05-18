@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,20 +9,17 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class OfficialAssignment extends Model
 {
-    use HasFactory, HasUuids, SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'official_id',
-        'assignment_type',
-        'description',
-        'assigned_date',
-        'end_date',
-        'status',
+        'committee_id',
+        'designation',
     ];
 
     protected $casts = [
-        'assigned_date' => 'date',
-        'end_date' => 'date',
+        'official_id' => 'integer',
+        'committee_id' => 'integer',
     ];
 
     /**
@@ -35,10 +31,10 @@ class OfficialAssignment extends Model
     }
 
     /**
-     * Check if assignment is active
+     * Get the committee for this assignment
      */
-    public function isActive(): bool
+    public function committee(): BelongsTo
     {
-        return $this->status === 'active' && now()->between($this->assigned_date, $this->end_date ?? now()->addYears(100));
+        return $this->belongsTo(Committee::class);
     }
 }

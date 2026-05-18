@@ -2,50 +2,38 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Blotter extends Model
 {
-    use HasFactory, HasUuids, SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'blotter_number',
-        'title',
-        'description',
+        'case_number',
+        'complainant',
+        'respondent',
+        'incident_description',
         'incident_date',
-        'reported_by_id',
-        'involved_parties',
         'status',
-        'assigned_to_id',
-        'case_location',
-        'supporting_documents',
-        'notes',
+        'parties',
+        'filed_by',
     ];
 
     protected $casts = [
         'incident_date' => 'datetime',
-        'supporting_documents' => 'array',
+        'parties' => 'json',
+        'status' => 'string',
     ];
 
     /**
-     * Get the resident who reported the incident
+     * Get the user who filed this blotter
      */
-    public function reported_by(): BelongsTo
+    public function filedBy(): BelongsTo
     {
-        return $this->belongsTo(Resident::class, 'reported_by_id');
-    }
-
-    /**
-     * Get the user assigned to this blotter
-     */
-    public function assigned_to(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'assigned_to_id');
+        return $this->belongsTo(User::class, 'filed_by');
     }
 
     /**

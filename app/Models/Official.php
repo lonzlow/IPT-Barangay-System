@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,24 +10,20 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Official extends Model
 {
-    use HasFactory, HasUuids, SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'resident_id',
         'position',
-        'designation',
         'term_start',
         'term_end',
-        'status',
-        'role_id',
-        'digital_id',
-        'contact_number',
-        'email',
+        'is_active',
     ];
 
     protected $casts = [
         'term_start' => 'date',
         'term_end' => 'date',
+        'is_active' => 'boolean',
     ];
 
     /**
@@ -37,14 +32,6 @@ class Official extends Model
     public function resident(): BelongsTo
     {
         return $this->belongsTo(Resident::class);
-    }
-
-    /**
-     * Get the role of this official
-     */
-    public function role(): BelongsTo
-    {
-        return $this->belongsTo(Role::class);
     }
 
     /**

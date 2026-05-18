@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,44 +10,42 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Committee extends Model
 {
-    use HasFactory, HasUuids, SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'name',
-        'type',
+        'head_official_id',
         'description',
-        'responsible_official_id',
-        'status',
-        'established_date',
     ];
 
     protected $casts = [
-        'established_date' => 'date',
+        'head_official_id' => 'integer',
     ];
 
     /**
-     * Get the official responsible for this committee
+     * Get the head official of this committee
      */
-    public function responsible_official(): BelongsTo
+    public function headOfficial(): BelongsTo
     {
-        return $this->belongsTo(Official::class, 'responsible_official_id');
+        return $this->belongsTo(Official::class, 'head_official_id');
     }
 
     /**
-     * Get all committee activities
+     * Get all assignments for this committee
      */
-    public function activities(): HasMany
+    public function assignments(): HasMany
     {
-        return $this->hasMany(CommitteeActivity::class);
+        return $this->hasMany(OfficialAssignment::class);
     }
 
     /**
-     * Get all committee accomplishments
+     * Get all records for this committee
      */
-    public function accomplishments(): HasMany
+    public function records(): HasMany
     {
-        return $this->hasMany(CommitteeAccomplishment::class);
+        return $this->hasMany(CommitteeRecord::class);
     }
+
 
     /**
      * Get all committee media
@@ -56,14 +53,6 @@ class Committee extends Model
     public function media(): HasMany
     {
         return $this->hasMany(CommitteeMedia::class);
-    }
-
-    /**
-     * Get all committee records
-     */
-    public function records(): HasMany
-    {
-        return $this->hasMany(CommitteeRecord::class);
     }
 
     /**

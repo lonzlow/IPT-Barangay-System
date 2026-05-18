@@ -1,6 +1,15 @@
 import './bootstrap';
 
 import Alpine from 'alpinejs';
+import jQuery from 'jquery';
+import DataTable from 'datatables.net-bs5';
+import axios from 'axios';
+
+// Expose to global scope for use in Blade templates
+window.$ = jQuery;
+window.jQuery = jQuery;
+window.DataTable = DataTable;
+window.axios = axios;
 
 window.Alpine = Alpine;
 

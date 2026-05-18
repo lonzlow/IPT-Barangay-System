@@ -1,156 +1,190 @@
-@extends('layouts.app')
-
-@section('title', 'Households Management')
+﻿@extends('layouts.app')
 
 @section('content')
 <div class="container-fluid">
-    {{-- Header --}}
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex align-items-center justify-content-between">
-                <h1 class="fw-bold" style="font-size:28px;">Households Management</h1>
-                <a href="{{ route('households.create') }}" class="btn btn-primary" style="border-radius:8px;">
-                    <i class="bi bi-plus-circle"></i> Register Household
-                </a>
-            </div>
-        </div>
-    </div>
-
-    {{-- Statistics --}}
-    <div class="row mb-4">
-        <div class="col-md-3">
-            <div class="card" style="border:1px solid #e2e8f0;border-radius:12px;">
-                <div class="card-body text-center p-4">
-                    <div style="font-size:28px;color:#1a56db;margin-bottom:8px;">
-                        <i class="bi bi-houses"></i>
-                    </div>
-                    <h3 class="fw-bold" style="color:#1e293b;margin-bottom:4px;">{{ $statistics['total_households'] }}</h3>
-                    <p style="color:#94a3b8;font-size:13px;margin:0;">Total Households</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card" style="border:1px solid #e2e8f0;border-radius:12px;">
-                <div class="card-body text-center p-4">
-                    <div style="font-size:28px;color:#10b981;margin-bottom:8px;">
-                        <i class="bi bi-people"></i>
-                    </div>
-                    <h3 class="fw-bold" style="color:#1e293b;margin-bottom:4px;">{{ $statistics['total_residents'] }}</h3>
-                    <p style="color:#94a3b8;font-size:13px;margin:0;">Total Residents</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card" style="border:1px solid #e2e8f0;border-radius:12px;">
-                <div class="card-body text-center p-4">
-                    <div style="font-size:28px;color:#f59e0b;margin-bottom:8px;">
-                        <i class="bi bi-diagram-3"></i>
-                    </div>
-                    <h3 class="fw-bold" style="color:#1e293b;margin-bottom:4px;">{{ $statistics['avg_family_size'] }}</h3>
-                    <p style="color:#94a3b8;font-size:13px;margin:0;">Avg Family Size</p>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card" style="border:1px solid #e2e8f0;border-radius:12px;">
-                <div class="card-body text-center p-4">
-                    <div style="font-size:28px;color:#ef4444;margin-bottom:8px;">
-                        <i class="bi bi-check-circle"></i>
-                    </div>
-                    <h3 class="fw-bold" style="color:#1e293b;margin-bottom:4px;">{{ $statistics['voters_count'] }}</h3>
-                    <p style="color:#94a3b8;font-size:13px;margin:0;">Registered Voters</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Quick Links --}}
-    <div class="row mb-4">
-        <div class="col-12">
-            <a href="{{ route('households.statistics') }}" class="btn btn-outline-info">
-                <i class="bi bi-graph-up"></i> View Detailed Statistics
-            </a>
-        </div>
-    </div>
-
-    {{-- Households Table --}}
     <div class="row">
         <div class="col-12">
-            <div class="card" style="border:1px solid #e2e8f0;border-radius:12px;">
-                <div class="card-body p-0">
-                    @if($households->count() > 0)
-                        <div class="table-responsive">
-                            <table class="table table-hover mb-0">
-                                <thead style="background-color:#f1f5f9;border-bottom:2px solid #e2e8f0;">
-                                    <tr>
-                                        <th style="color:#475569;font-weight:600;padding:12px;">House #</th>
-                                        <th style="color:#475569;font-weight:600;padding:12px;">Street</th>
-                                        <th style="color:#475569;font-weight:600;padding:12px;">Purok</th>
-                                        <th style="color:#475569;font-weight:600;padding:12px;">Head</th>
-                                        <th style="color:#475569;font-weight:600;padding:12px;">Family Size</th>
-                                        <th style="color:#475569;font-weight:600;padding:12px;">Residents</th>
-                                        <th style="color:#475569;font-weight:600;padding:12px;">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach($households as $household)
-                                        <tr>
-                                            <td style="padding:12px;"><strong>{{ $household->house_number }}</strong></td>
-                                            <td style="padding:12px;">{{ $household->street }}</td>
-                                            <td style="padding:12px;">
-                                                <span class="badge" style="background-color:#e0e7ff;color:#1a56db;">
-                                                    {{ $household->purok?->purok_name }}
-                                                </span>
-                                            </td>
-                                            <td style="padding:12px;">
-                                                {{ $household->head_resident?->first_name ?? 'Unassigned' }} 
-                                                {{ $household->head_resident?->last_name ?? '' }}
-                                            </td>
-                                            <td style="padding:12px;">{{ $household->family_size }}</td>
-                                            <td style="padding:12px;">
-                                                <span class="badge" style="background-color:#dbeafe;color:#0369a1;">
-                                                    {{ $household->residents()->count() }}
-                                                </span>
-                                            </td>
-                                            <td style="padding:12px;">
-                                                <div class="btn-group btn-group-sm" role="group">
-                                                    <a href="{{ route('households.show', $household->id) }}" class="btn btn-sm btn-outline-primary" title="View">
-                                                        <i class="bi bi-eye"></i>
-                                                    </a>
-                                                    <a href="{{ route('households.edit', $household->id) }}" class="btn btn-sm btn-outline-warning" title="Edit">
-                                                        <i class="bi bi-pencil"></i>
-                                                    </a>
-                                                    <form action="{{ route('households.destroy', $household->id) }}" method="POST" style="display:inline;">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this household?')">
-                                                            <i class="bi bi-trash"></i>
-                                                        </button>
-                                                    </form>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="card-footer" style="background-color:#f8fafc;border-top:1px solid #e2e8f0;padding:12px;">
-                            {{ $households->links() }}
-                        </div>
-                    @else
-                        <div style="padding:40px;text-align:center;">
-                            <div style="font-size:48px;color:#cbd5e1;margin-bottom:12px;">
-                                <i class="bi bi-inbox"></i>
-                            </div>
-                            <p style="color:#94a3b8;margin-bottom:20px;">No households registered yet.</p>
-                            <a href="{{ route('households.create') }}" class="btn btn-primary">
-                                <i class="bi bi-plus-circle"></i> Create First Household
-                            </a>
-                        </div>
-                    @endif
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title">Households</h3>
+                    <button type="button" class="btn btn-primary" onclick="createHousehold()">
+                        Add Household
+                    </button>
+                </div>
+                <div class="card-body">
+                    <table class="table table-bordered table-striped" id="households-table">
+                        <thead>
+                            <tr>
+                                <th>Purok</th>
+                                <th>Head Name</th>
+                                <th>Contact</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($households as $household)
+                            <tr id="row-{{ $household->id }}">
+                                <td>{{ $household->purok->purok_name ?? 'N/A' }}</td>
+                                <td>{{ $household->head_first_name }} {{ $household->head_middle_name }} {{ $household->head_last_name }}</td>
+                                <td>{{ $household->head_contact_number }}</td>
+                                <td>
+                                    @if($household->status == 'active')
+                                        <span class="badge bg-success">Active</span>
+                                    @else
+                                        <span class="badge bg-secondary">Inactive</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-info" onclick="editHousehold({{ $household->id }})">Edit</button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteHousehold({{ $household->id }})">Delete</button>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Modal -->
+<div class="modal fade" id="householdModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form id="householdForm">
+            @csrf
+            <input type="hidden" name="id" id="household_id">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalTitle">Add Household</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label>Purok</label>
+                        <select name="purok_id" id="purok_id" class="form-select" required>
+                            @foreach($puroks as $purok)
+                                <option value="{{ $purok->id }}">{{ $purok->purok_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label>First Name</label>
+                        <input type="text" name="head_first_name" id="head_first_name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Middle Name</label>
+                        <input type="text" name="head_middle_name" id="head_middle_name" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label>Last Name</label>
+                        <input type="text" name="head_last_name" id="head_last_name" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label>Contact Number</label>
+                        <input type="text" name="head_contact_number" id="head_contact_number" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label>Notes</label>
+                        <textarea name="notes" id="notes" class="form-control"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label>Status</label>
+                        <select name="status" id="status" class="form-select">
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+const householdModal = new bootstrap.Modal(document.getElementById('householdModal'));
+
+function createHousehold() {
+    document.getElementById('householdForm').reset();
+    document.getElementById('household_id').value = '';
+    document.getElementById('modalTitle').textContent = 'Add Household';
+    householdModal.show();
+}
+
+async function editHousehold(id) {
+    const res = await fetch(`/households/${id}/edit`);
+    const data = await res.json();
+    if (data) {
+        document.getElementById('household_id').value = data.id;
+        document.getElementById('purok_id').value = data.purok_id;
+        document.getElementById('head_first_name').value = data.head_first_name;
+        document.getElementById('head_middle_name').value = data.head_middle_name || '';
+        document.getElementById('head_last_name').value = data.head_last_name;
+        document.getElementById('head_contact_number').value = data.head_contact_number || '';
+        document.getElementById('notes').value = data.notes || '';
+        document.getElementById('status').value = data.status;
+        document.getElementById('modalTitle').textContent = 'Edit Household';
+        householdModal.show();
+    }
+}
+
+async function deleteHousehold(id) {
+    if (!confirm('Are you sure you want to delete this household?')) return;
+    try {
+        const res = await fetch(`/households/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+            }
+        });
+        if (res.ok) {
+            document.getElementById(`row-${id}`).remove();
+            alert('Household deleted successfully');
+        } else {
+            alert('Failed to delete household');
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+    }
+}
+
+document.getElementById('householdForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('household_id').value;
+    const url = id ? `/households/${id}` : '/households';
+    const method = id ? 'PUT' : 'POST';
+    
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+
+    try {
+        const res = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (res.ok) {
+            alert('Household saved successfully');
+            householdModal.hide();
+            location.reload();
+        } else {
+            const errorData = await res.json();
+            alert('Error: ' + JSON.stringify(errorData.errors || errorData.message));
+        }
+    } catch (err) {
+        alert('An error occurred: ' + err.message);
+    }
+});
+</script>
 @endsection

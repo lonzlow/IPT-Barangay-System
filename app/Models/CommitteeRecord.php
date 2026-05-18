@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,19 +9,22 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class CommitteeRecord extends Model
 {
-    use HasFactory, HasUuids, SoftDeletes;
+    use HasFactory, SoftDeletes;
+
+    protected $table = 'committees_records';
 
     protected $fillable = [
         'committee_id',
         'record_type',
         'title',
-        'content',
-        'record_date',
-        'reference_number',
+        'description',
+        'file_path',
+        'recorded_at',
     ];
 
     protected $casts = [
-        'record_date' => 'datetime',
+        'recorded_at' => 'datetime',
+        'record_type' => 'string',
     ];
 
     /**
@@ -34,7 +36,7 @@ class CommitteeRecord extends Model
     }
 
     /**
-     * Scope to filter by record type (incident, resolution, training, partnership, attendance)
+     * Scope to filter by record type
      */
     public function scopeByType($query, $type)
     {
