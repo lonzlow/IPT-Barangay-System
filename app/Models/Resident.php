@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -52,8 +53,41 @@ class Resident extends Model
         return $this->hasOne(BusinessOwner::class);
     }
 
-    public function official(): HasOne
+    /**
+     * Get the resident's age calculated from birthdate
+     */
+    public function getAgeAttribute(): ?int
     {
-        return $this->hasOne(Official::class);
+        if (!$this->birthdate) {
+            return null;
+        }
+        return Carbon::parse($this->birthdate)->age;
+    }
+
+    /**
+     * Get age group for the resident
+     */
+    public function getAgeGroupAttribute(): ?string
+    {
+        if (!$this->age) {
+            return null;
+        }
+        if ($this->age < 13) {
+            return '0-12';
+        } elseif ($this->age < 18) {
+            return '13-17';
+        } elseif ($this->age < 60) {
+            return '18-59';
+        } else {
+            return '60+';
+        }
+    }
+
+    /**
+     * Get all documents issued for this resident
+     */
+    public function documents()
+    {
+        return $this->hasMany(Document::class);
     }
 }

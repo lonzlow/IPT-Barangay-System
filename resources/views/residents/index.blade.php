@@ -51,10 +51,16 @@
         <h5 class="fw-800 mb-1" style="font-size:18px;">Resident Management</h5>
         <p class="mb-0" style="font-size:13px;color:#64748b;">Manage all registered residents of the barangay.</p>
     </div>
-    <a href="{{ route('residents.create') }}" class="btn btn-primary d-flex align-items-center gap-2"
-            style="border-radius:8px;font-size:13.5px;font-weight:600;padding:9px 18px;">
-        <i class="bi bi-person-plus-fill"></i> Add New Resident
-    </a>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{{ route('residents.demographics') }}" class="btn btn-outline-primary d-flex align-items-center gap-2"
+                style="border-radius:8px;font-size:13.5px;font-weight:600;padding:9px 18px;">
+            <i class="bi bi-graph-up"></i> Statistics
+        </a>
+        <a href="{{ route('residents.create') }}" class="btn btn-primary d-flex align-items-center gap-2"
+                style="border-radius:8px;font-size:13.5px;font-weight:600;padding:9px 18px;">
+            <i class="bi bi-person-plus-fill"></i> Add New Resident
+        </a>
+    </div>
 </div>
 
 @if(session('success'))
@@ -141,70 +147,105 @@
 
 {{-- ── RESIDENT LIST ── --}}
 <div class="section-heading">Resident List</div>
-<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
-    <div class="input-group search-input-group" style="max-width:340px;">
-        <input type="text" class="form-control" placeholder="Search name, age, address…">
-        <button class="btn btn-primary" style="padding:0 14px;"><i class="bi bi-search"></i></button>
-    </div>
-    <select class="form-select" style="width:auto;font-size:13px;border-radius:8px;">
-        <option value="">All Genders</option>
-        <option>Male</option><option>Female</option><option>Other</option>
-    </select>
-    <select class="form-select" style="width:auto;font-size:13px;border-radius:8px;">
-        <option value="">All Status</option>
-        <option>Active</option><option>Deceased</option><option>Transferred</option>
-    </select>
-    <div class="d-flex gap-1 ms-auto flex-wrap">
-        <button class="filter-chip active">All</button>
-        <button class="filter-chip">Seniors</button>
-        <button class="filter-chip">Youth</button>
-        <button class="filter-chip">Voters</button>
-        <button class="filter-chip">PWD</button>
+
+{{-- Filter Bar --}}
+<div class="collapse mb-3" id="filterPanel">
+    <div style="background:#f9fafb;padding:12px;border-radius:8px;border:1px solid #e2e8f0;">
+        <div class="row g-2">
+            <div class="col-md-2">
+                <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:4px;">Gender</label>
+                <select id="gender-filter" class="form-select form-select-sm" style="font-size:12px;border-radius:6px;" onchange="filterTable()">
+                    <option value="">All</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:4px;">Residency</label>
+                <select id="residency-filter" class="form-select form-select-sm" style="font-size:12px;border-radius:6px;" onchange="filterTable()">
+                    <option value="">All</option>
+                    <option value="Active">Active</option>
+                    <option value="Deceased">Deceased</option>
+                    <option value="Transferred">Transferred</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:4px;">Voter Status</label>
+                <select id="voter-filter" class="form-select form-select-sm" style="font-size:12px;border-radius:6px;" onchange="filterTable()">
+                    <option value="">All</option>
+                    <option value="Registered">Registered</option>
+                    <option value="Unregistered">Unregistered</option>
+                    <option value="Suspended">Suspended</option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:4px;">Civil Status</label>
+                <select id="civil-status-filter" class="form-select form-select-sm" style="font-size:12px;border-radius:6px;" onchange="filterTable()">
+                    <option value="">All</option>
+                    <option value="Single">Single</option>
+                    <option value="Married">Married</option>
+                    <option value="Widowed">Widowed</option>
+                    <option value="Separated">Separated</option>
+                    <option value="Divorced">Divorced</option>
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:4px;">Age Range</label>
+                <div class="d-flex gap-2 align-items-center">
+                    <input type="number" id="age-from" class="form-control form-control-sm" placeholder="From" style="font-size:12px;" min="0" max="120" onchange="filterTable()">
+                    <span style="color:#94a3b8;">−</span>
+                    <input type="number" id="age-to" class="form-control form-control-sm" placeholder="To" style="font-size:12px;" min="0" max="120" onchange="filterTable()">
+                    <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()" style="font-size:11px;border-radius:6px;white-space:nowrap;"><i class="bi bi-x"></i> Clear</button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
 <div class="table-card">
     <div class="table-header">
-        <span class="heading">Residents <span class="badge bg-light text-secondary fw-600 ms-1" style="font-size:12px;">4,821</span></span>
-        <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" style="font-size:12.5px;border-radius:7px;">
-            <i class="bi bi-download"></i> Export
-        </button>
-        <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" style="font-size:12.5px;border-radius:7px;">
-            <i class="bi bi-funnel"></i> Filter
-        </button>
+        <div class="d-flex align-items-center justify-content-between gap-2">
+            <span class="heading">Residents <span class="badge bg-light text-secondary fw-600 ms-1" style="font-size:12px;">4,821</span></span>
+            <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" style="font-size:12.5px;border-radius:7px;" data-bs-toggle="collapse" data-bs-target="#filterPanel">
+                    <i class="bi bi-funnel"></i> Filters
+                </button>
+                <a href="{{ route('residents.exportPDF') }}" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1" style="font-size:12.5px;border-radius:7px;">
+                    <i class="bi bi-download"></i> Export PDF
+                </a>
+            </div>
+        </div>
     </div>
     <div class="table-responsive">
-        <table class="display" id="residents-table"> {{-- table table-hover mb-0 --}}
+        <table class="display" id="residents-table" style="width:100%;">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>First Name</th>
-                    <th>M.I.</th>
-                    <th>Last Name</th>
-                    <th>Suffix</th>
-                    <th>Email</th>
-                    <th>Contact No.</th>
-                    <th>Gender</th>
-                    <th>Address / Purok</th>
-                    <th>Voter</th>
-                    <th>Status</th>
-                    <th>Actions</th>
+                    <th style="width:8%;">ID</th>
+                    <th style="width:9%;">First Name</th>
+                    <th style="width:5%;">M.I.</th>
+                    <th style="width:9%;">Last Name</th>
+                    <th style="width:6%;">Suffix</th>
+                    <th style="width:5%;">Age</th>
+                    <th style="width:12%;">Email</th>
+                    <th style="width:10%;">Contact No.</th>
+                    <th style="width:7%;">Gender</th>
+                    <th style="width:13%;">Address / Purok</th>
+                    <th style="width:8%;">Voter</th>
+                    <th style="width:8%;">Status</th>
+                    <th style="width:8%;">Actions</th>
                 </tr>
             </thead>
+            <tbody>
+            </tbody>
         </table>
     </div>
-    <div class="d-flex align-items-center justify-content-between px-4 py-3"
-         style="border-top:1px solid #f1f5f9;font-size:13px;color:#64748b;">
-        <span>Showing <strong>1–8</strong> of <strong>4,821</strong> residents</span>
-        <nav>
-            <ul class="pagination pagination-sm mb-0" style="gap:3px;">
-                <li class="page-item disabled"><a class="page-link" style="border-radius:6px;">&laquo;</a></li>
-                <li class="page-item active"><a class="page-link" style="border-radius:6px;">1</a></li>
-                <li class="page-item"><a class="page-link" style="border-radius:6px;">2</a></li>
-                <li class="page-item"><a class="page-link" style="border-radius:6px;">3</a></li>
-                <li class="page-item"><a class="page-link" style="border-radius:6px;">&raquo;</a></li>
-            </ul>
-        </nav>
+    <div style="padding:12px 16px;border-top:1px solid #f1f5f9;font-size:12px;color:#64748b;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;">
+        <span id="table-info">Showing 0 entries</span>
     </div>
 </div>
 
@@ -249,33 +290,46 @@
             options: { cutout: '72%', maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
 
-        /*
+        // Filter table function
+        function filterTable() {
+            table.draw();
+        }
 
-                    <th>ID</th>
-                    <th>First Name</th>
-                    <th>M.I.</th>
-                    <th>Last Name</th>
-                    <th>Suffix</th>
-                    <th>Email</th>
-                    <th>Gender</th>
-                    <th>Address / Purok</th>
-                    <th>Voter</th>
-                    <th>Status</th>
-                    <th style="width:100px;">Actions</th>
-        */
+        // Clear all filters
+        function clearFilters() {
+            document.getElementById('gender-filter').value = '';
+            document.getElementById('residency-filter').value = '';
+            document.getElementById('voter-filter').value = '';
+            document.getElementById('civil-status-filter').value = '';
+            document.getElementById('age-from').value = '';
+            document.getElementById('age-to').value = '';
+            filterTable();
+        }
 
         // YAJRA RESIDENTS TABLE
+        var table;
         $(document).ready(function () {
-            $('#residents-table').DataTable({
+            table = $('#residents-table').DataTable({
                 processing: true,
                 serverSide: true,
-                ajax: "{{ route('residents.data') }}",
+                ajax: {
+                    url: "{{ route('residents.data') }}",
+                    data: function (d) {
+                        d.gender = document.getElementById('gender-filter').value;
+                        d.residency_status = document.getElementById('residency-filter').value;
+                        d.voter_status = document.getElementById('voter-filter').value;
+                        d.civil_status = document.getElementById('civil-status-filter').value;
+                        d.age_from = document.getElementById('age-from').value;
+                        d.age_to = document.getElementById('age-to').value;
+                    }
+                },
                 columns: [
                     {data: 'id', name: 'id'},
                     {data: 'first_name', name: 'first_name'},
                     {data: 'middle_name', name: 'middle_name'},
                     {data: 'last_name', name: 'last_name'},
                     {data: 'suffix', name: 'suffix'},
+                    {data: 'age', name: 'age', orderable: false, searchable: false},
                     {data: 'email', name: 'email'},
                     {data: 'contact_number', name: 'contact_number'},
                     {data: 'gender', name: 'gender'},

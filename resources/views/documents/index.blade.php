@@ -1,11 +1,8 @@
-{{--
-    documents.blade.php
-    Route: GET /documents  →  route('documents.index')
---}}
 @extends('layouts.app')
 
-@section('title', 'Document Issuance – Barangay Management System')
-@section('page-title', 'Document Issuance')
+@section('title', 'Barangay Documents')
+
+
 
 @section('styles')
 <style>
@@ -123,9 +120,9 @@
             <i class="bi bi-clock-history"></i> Request Queue
             <span class="badge bg-warning text-dark ms-1">5</span>
         </button>
-        <button class="btn btn-primary d-flex align-items-center gap-2"
+        <button type="button" class="btn btn-primary d-flex align-items-center gap-2" onclick="openCreateModal()"
                 style="border-radius:8px;font-size:13.5px;font-weight:600;padding:9px 18px;">
-            <i class="bi bi-plus-lg"></i> New Request
+            <i class="bi bi-plus-lg"></i> Issue Document
         </button>
     </div>
 </div>
@@ -192,7 +189,7 @@
 <div class="row g-3 mb-4">
 
     {{-- Recent Documents Issued --}}
-    <div class="col-lg-7">
+    <div class="col-lg-12">
         <div class="table-card h-100">
             <div class="table-header">
                 <span class="heading">Recent Documents Issued</span>
@@ -201,113 +198,19 @@
                 </button>
             </div>
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table id="documentsTable" class="table table-hover mb-0">
                     <thead>
                         <tr>
-                            <th>Control No.</th>
+                            <th>Reference No.</th>
                             <th>Resident</th>
                             <th>Document Type</th>
                             <th>Date Issued</th>
+                            <th>Valid Until</th>
                             <th>Status</th>
-                            <th></th>
+                            <th style="width: 150px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @php
-                        $recent = [
-                            ['BRG-2025-0841','Maria Santos',   'Barangay Clearance',     'Feb 24, 2025','released'],
-                            ['BRG-2025-0840','Carlo Mendoza',  'Indigency Certificate',  'Feb 24, 2025','issued'],
-                            ['BRG-2025-0839','Ana Reyes',      'Good Moral Certificate', 'Feb 23, 2025','issued'],
-                            ['BRG-2025-0838','Luz Villanueva', 'Residency Certificate',  'Feb 23, 2025','released'],
-                            ['BRG-2025-0837','Ernesto Lim',    'Business Clearance',     'Feb 22, 2025','issued'],
-                            ['BRG-2025-0836','Rosa Aquino',    'Barangay Clearance',     'Feb 22, 2025','cancelled'],
-                            ['BRG-2025-0835','Juan dela Cruz', 'Indigency Certificate',  'Feb 21, 2025','released'],
-                        ];
-                        $badgeMap = ['issued'=>['badge-issued','Issued'],'released'=>['badge-released','Released'],'cancelled'=>['badge-cancelled','Cancelled']];
-                        @endphp
-                        @foreach($recent as $doc)
-                        @php [$ctrl,$name,$type,$date,$status] = $doc; [$bc,$bl] = $badgeMap[$status]; @endphp
-                        <tr>
-                            <td style="font-family:'DM Mono',monospace;font-size:12px;color:#64748b;">{{ $ctrl }}</td>
-                            <td style="font-weight:600;">{{ $name }}</td>
-                            <td style="font-size:13px;">{{ $type }}</td>
-                            <td style="font-size:12.5px;color:#64748b;">{{ $date }}</td>
-                            <td><span class="status-badge {{ $bc }}">{{ $bl }}</span></td>
-                            <td>
-                                <button class="btn btn-sm btn-light" title="Print" style="border-radius:6px;padding:3px 8px;">
-                                    <i class="bi bi-printer" style="font-size:13px;"></i>
-                                </button>
-                            </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-            <div class="d-flex align-items-center justify-content-between px-4 py-3"
-                 style="border-top:1px solid #f1f5f9;font-size:13px;color:#64748b;">
-                <span>Showing <strong>1–7</strong> of <strong>549</strong> documents</span>
-                <nav>
-                    <ul class="pagination pagination-sm mb-0" style="gap:3px;">
-                        <li class="page-item disabled"><a class="page-link" style="border-radius:6px;">&laquo;</a></li>
-                        <li class="page-item active"><a class="page-link" style="border-radius:6px;">1</a></li>
-                        <li class="page-item"><a class="page-link" style="border-radius:6px;">2</a></li>
-                        <li class="page-item"><a class="page-link" style="border-radius:6px;">&raquo;</a></li>
-                    </ul>
-                </nav>
-            </div>
-        </div>
-    </div>
-
-    {{-- Pending Requests --}}
-    <div class="col-lg-5">
-        <div class="table-card h-100">
-            <div class="table-header">
-                <span class="heading">
-                    Pending Requests
-                    <span class="badge ms-1" style="background:#fef3c7;color:#b45309;font-size:11px;border-radius:20px;padding:2px 9px;">5</span>
-                </span>
-                <button class="btn btn-sm btn-warning d-flex align-items-center gap-1"
-                        style="font-size:12.5px;border-radius:7px;font-weight:600;">
-                    <i class="bi bi-check2-all"></i> Process All
-                </button>
-            </div>
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th>Resident</th>
-                            <th>Document</th>
-                            <th>Requested</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @php
-                        $pending = [
-                            ['Pedro Garcia',  'Barangay Clearance',   '2h ago'],
-                            ['Nena Torres',   'Indigency Certificate','4h ago'],
-                            ['Romy Salazar',  'Residency Certificate','Yesterday'],
-                            ['Divina Flores', 'Business Clearance',  'Yesterday'],
-                            ['Jose Castillo', 'Good Moral Cert.',    '2 days ago'],
-                        ];
-                        @endphp
-                        @foreach($pending as $p)
-                        <tr>
-                            <td style="font-weight:600;font-size:13px;">{{ $p[0] }}</td>
-                            <td style="font-size:12.5px;color:#64748b;">{{ $p[1] }}</td>
-                            <td style="font-size:12px;color:#94a3b8;">{{ $p[2] }}</td>
-                            <td>
-                                <div class="d-flex gap-1">
-                                    <button class="btn btn-sm btn-success" style="border-radius:6px;padding:3px 8px;font-size:12px;" title="Approve">
-                                        <i class="bi bi-check-lg"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-light text-danger" style="border-radius:6px;padding:3px 8px;font-size:12px;" title="Decline">
-                                        <i class="bi bi-x-lg"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        @endforeach
                     </tbody>
                 </table>
             </div>
@@ -412,8 +315,235 @@
 
 </div>
 
+{{-- Document Form Modal --}}
+@include('documents.partials.form-modal')
+
 @endsection
 
 @section('scripts')
-{{-- No charts on this page. Add JS here as functionality is wired up. --}}
+<script>
+    // Wait for jQuery and axios to be available
+    function waitForDependencies(callback, attempts = 0) {
+        if (typeof window.$ !== 'undefined' && typeof window.axios !== 'undefined') {
+            callback();
+        } else if (attempts < 50) {
+            setTimeout(() => waitForDependencies(callback, attempts + 1), 100);
+        } else {
+            console.error('jQuery and/or axios did not load');
+        }
+    }
+
+    // ───────────────────────────────────────────
+    // INITIALIZATION - All code runs after dependencies load
+    // ───────────────────────────────────────────
+    waitForDependencies(function() {
+        const $ = window.$;
+        const axios = window.axios;
+
+        // Global variables
+        let documentsTable;
+        let editingDocumentId = null;
+        let documentForm;
+        let submitFormBtn;
+        let modal;
+
+        // ───────────────────────────────────────────
+        // HELPER FUNCTIONS
+        // ───────────────────────────────────────────
+        function clearFormErrors() {
+            document.querySelectorAll('.text-danger').forEach(el => {
+                el.classList.add('d-none');
+                el.textContent = '';
+            });
+        }
+
+        function showAlert(message, type) {
+            const alertHtml = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 400px;">
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', alertHtml);
+            setTimeout(() => {
+                document.querySelectorAll('.alert').forEach(alert => alert.remove());
+            }, 5000);
+        }
+
+        function openCreateModal() {
+            editingDocumentId = null;
+            documentForm.reset();
+            document.getElementById('documentId').value = '';
+            document.getElementById('formMethod').value = 'POST';
+            document.getElementById('submitBtnText').textContent = 'Issue Document';
+            document.getElementById('templateGroup').classList.remove('d-none');
+            document.getElementById('statusGroup').classList.add('d-none');
+            document.getElementById('residentSelect').disabled = false;
+            document.getElementById('templateSelect').disabled = false;
+            document.getElementById('documentFormModalLabel').textContent = 'Issue New Document';
+            clearFormErrors();
+            modal.show();
+        }
+
+        function openEditModal(documentId) {
+            editingDocumentId = documentId;
+            document.getElementById('documentId').value = documentId;
+            document.getElementById('formMethod').value = 'PUT';
+            document.getElementById('submitBtnText').textContent = 'Save Changes';
+            document.getElementById('templateGroup').classList.add('d-none');
+            document.getElementById('statusGroup').classList.remove('d-none');
+            document.getElementById('residentSelect').disabled = true;
+            document.getElementById('templateSelect').disabled = true;
+            document.getElementById('documentFormModalLabel').textContent = 'Edit Document';
+            clearFormErrors();
+
+            axios.get(`/documents/${documentId}`, {
+                headers: { 'Accept': 'application/json' }
+            }).then(response => {
+                const doc = response.data;
+                document.querySelector('input[name="purpose"]').value = doc.purpose || '';
+                document.querySelector('input[name="issued_by"]').value = doc.issued_by || '';
+                document.querySelector('select[name="status"]').value = doc.status || 'Issued';
+                modal.show();
+            }).catch(error => {
+                showAlert('Error loading document details', 'danger');
+            });
+        }
+
+        function deleteDocument(documentId) {
+            if (!confirm('Are you sure you want to delete this document?')) return;
+
+            axios.delete(`/documents/${documentId}`, {
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                    'Accept': 'application/json',
+                }
+            }).then(response => {
+                showAlert(response.data.message, 'success');
+                documentsTable.ajax.reload();
+            }).catch(error => {
+                showAlert(error.response?.data?.message || 'An error occurred', 'danger');
+            });
+        }
+
+        // Make functions globally available
+        window.openCreateModal = openCreateModal;
+        window.openEditModal = openEditModal;
+        window.deleteDocument = deleteDocument;
+
+        // ───────────────────────────────────────────
+        // DOM READY INITIALIZATION
+        // ───────────────────────────────────────────
+        $(document).ready(function() {
+            // Initialize Axios defaults
+            axios.defaults.baseURL = '{{ url("/") }}';
+
+            // Cache DOM elements
+            documentForm = document.getElementById('documentForm');
+            submitFormBtn = document.getElementById('submitFormBtn');
+            modal = new bootstrap.Modal(document.getElementById('documentFormModal'));
+
+            // Initialize DataTable
+            documentsTable = $('#documentsTable').DataTable({
+                processing: true,
+                serverSide: true,
+                ajax: '{{ route("documents.data") }}',
+                columns: [
+                    { data: 'reference_number', name: 'reference_number' },
+                    { data: 'resident_name', name: 'resident_name' },
+                    { data: 'template_name', name: 'template_name' },
+                    { data: 'issued_date_formatted', name: 'issued_date' },
+                    { data: 'valid_until_formatted', name: 'valid_until' },
+                    { data: 'status_badge', name: 'status', orderable: false, searchable: false },
+                    { data: 'action', name: 'action', orderable: false, searchable: false }
+                ],
+                order: [[3, 'desc']],
+                pageLength: 10,
+                lengthMenu: [[5, 10, 25, 50, 100], [5, 10, 25, 50, 100]],
+                responsive: true,
+                language: {
+                    search: "Search documents:",
+                    lengthMenu: "Show _MENU_ entries",
+                    info: "Showing _START_ to _END_ of _TOTAL_ documents",
+                    infoEmpty: "No documents available",
+                    infoFiltered: "(filtered from _MAX_ total documents)",
+                    paginate: {
+                        first: "First",
+                        last: "Last",
+                        next: "Next",
+                        previous: "Previous"
+                    }
+                }
+            });
+
+            // Form submission handler
+            submitFormBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                if (!documentForm.checkValidity()) {
+                    documentForm.reportValidity();
+                    return;
+                }
+
+                const formData = new FormData(documentForm);
+                const params = new URLSearchParams(formData);
+                
+                let url = '/documents';
+                let method = 'POST';
+                
+                if (editingDocumentId) {
+                    url = `/documents/${editingDocumentId}`;
+                    method = 'PUT';
+                    params.append('_method', 'PUT');
+                }
+
+                document.getElementById('formLoading').classList.remove('d-none');
+                submitFormBtn.disabled = true;
+
+                axios({
+                    method: method === 'PUT' ? 'post' : method,
+                    url: url,
+                    data: params,
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                        'Accept': 'application/json',
+                    }
+                }).then(response => {
+                    showAlert(response.data.message, 'success');
+                    modal.hide();
+                    setTimeout(() => {
+                        documentsTable.ajax.reload();
+                    }, 800);
+                }).catch(error => {
+                    if (error.response && error.response.status === 422) {
+                        const errors = error.response.data.errors || {};
+                        Object.keys(errors).forEach(field => {
+                            const errorElement = document.getElementById(`${field}-error`);
+                            if (errorElement) {
+                                errorElement.textContent = errors[field][0];
+                                errorElement.classList.remove('d-none');
+                            }
+                        });
+                        showAlert('Please fix the validation errors', 'warning');
+                    } else {
+                        showAlert(error.response?.data?.message || 'An error occurred', 'danger');
+                    }
+                }).finally(() => {
+                    document.getElementById('formLoading').classList.add('d-none');
+                    submitFormBtn.disabled = false;
+                });
+            });
+
+            // Template description handler
+            const templateSelect = document.getElementById('templateSelect');
+            if (templateSelect) {
+                templateSelect.addEventListener('change', function() {
+                    const option = this.options[this.selectedIndex];
+                    const desc = option.dataset.description;
+                    document.getElementById('template-desc').textContent = desc || '';
+                });
+            }
+        });
+    });
+</script>
 @endsection

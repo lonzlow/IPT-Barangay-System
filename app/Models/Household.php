@@ -12,11 +12,13 @@ class Household extends Model
     use HasFactory;
 
     protected $fillable = [
-        'purok_id',
-        'house_number',
-        'street',
-        'family_size',
-        'head_resident_id',
+        "purok_id",
+        "head_first_name",
+        "head_middle_name",
+        "head_last_name",
+        "head_contact_number",
+        "notes",
+        "status",
     ];
 
     public function residents(): HasMany
@@ -26,7 +28,7 @@ class Household extends Model
 
     public function head_resident(): BelongsTo
     {
-        return $this->belongsTo(Resident::class, 'head_resident_id');
+        return $this->belongsTo(Resident::class, "head_resident_id");
     }
 
     public function purok(): BelongsTo
