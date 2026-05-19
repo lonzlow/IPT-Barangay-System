@@ -19,6 +19,7 @@ class UserSeeder extends Seeder
 
         foreach ($officials as $official) {
             User::factory()->create([
+                'official_id' => $official->id,
                 'email' => strtolower(
                     $official->resident->first_name[0] . '.' . str_replace(' ', '', $official->resident->last_name)
                 ) . '@barangaynewera.gov.ph',

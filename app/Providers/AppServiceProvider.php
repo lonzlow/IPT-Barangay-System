@@ -39,16 +39,16 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::define('dashboard.view', fn (User $u) => true);
 
-        Gate::define('residents.view', fn (User $u) => $u->hasAnyRole(array_merge($captain, $admin, $secretary, $treasurer, $bhw, $bdrrm, $encoder, $auditor)));
-        Gate::define('documents.view', fn (User $u) => $u->hasAnyRole(array_merge($captain, $admin, $secretary, $treasurer, $encoder, $auditor)));
-        Gate::define('blotter.view', fn (User $u) => $u->hasAnyRole(array_merge($captain, $admin, $secretary, $tanod, $encoder, $auditor)));
-        Gate::define('households.view', fn (User $u) => $u->hasAnyRole(array_merge($captain, $admin, $secretary, $bhw, $bdrrm, $encoder, $auditor)));
-        Gate::define('business.view', fn (User $u) => $u->hasAnyRole(array_merge($captain, $admin, $secretary, $treasurer, $encoder, $auditor)));
-        Gate::define('officials.view', fn (User $u) => $u->hasAnyRole(array_merge($captain, $admin, $secretary, $kagawad, $sk, $auditor)));
-        Gate::define('committees.view', fn (User $u) => $u->hasAnyRole(array_merge($captain, $admin, $secretary, $kagawad, $sk, $bhw, $bdrrm, $auditor)));
-        Gate::define('reports.view', fn (User $u) => $u->hasAnyRole(array_merge($captain, $admin, $secretary, $treasurer, $auditor)));
-        Gate::define('users.view', fn (User $u) => $u->hasAnyRole($admin));
+        Gate::define('residents.view', fn (User $u) => $u->official?->hasAnyRole(array_merge($captain, $admin, $secretary, $treasurer, $bhw, $bdrrm, $encoder, $auditor)));
+        Gate::define('documents.view', fn (User $u) => $u->official?->hasAnyRole(array_merge($captain, $admin, $secretary, $treasurer, $encoder, $auditor)));
+        Gate::define('blotter.view', fn (User $u) => $u->official?->hasAnyRole(array_merge($captain, $admin, $secretary, $tanod, $encoder, $auditor)));
+        Gate::define('households.view', fn (User $u) => $u->official?->hasAnyRole(array_merge($captain, $admin, $secretary, $bhw, $bdrrm, $encoder, $auditor)));
+        Gate::define('business.view', fn (User $u) => $u->official?->hasAnyRole(array_merge($captain, $admin, $secretary, $treasurer, $encoder, $auditor)));
+        Gate::define('officials.view', fn (User $u) => $u->official?->hasAnyRole(array_merge($captain, $admin, $secretary, $kagawad, $sk, $auditor)));
+        Gate::define('committees.view', fn (User $u) => $u->official?->hasAnyRole(array_merge($captain, $admin, $secretary, $kagawad, $sk, $bhw, $bdrrm, $auditor)));
+        Gate::define('reports.view', fn (User $u) => $u->official?->hasAnyRole(array_merge($captain, $admin, $secretary, $treasurer, $auditor)));
+        Gate::define('users.view', fn (User $u) => $u->official?->hasAnyRole($admin));
 
-        Gate::define('documents.approve', fn (User $u) => $u->hasAnyRole(array_merge($captain, $admin)));
+        Gate::define('documents.approve', fn (User $u) => $u->official?->hasAnyRole(array_merge($captain, $admin)));
     }
 }

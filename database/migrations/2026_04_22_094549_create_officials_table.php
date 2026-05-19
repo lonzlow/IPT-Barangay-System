@@ -16,9 +16,9 @@ return new class extends Migration
             $table->string('official_number')->unique();
             $table->foreignUuid('resident_id')->constrained()->onDelete('cascade');
             $table->foreignId('role_id')->constrained('roles')->onDelete('cascade');
-            $table->foreignId('committee_id')->constrained()->onDelete('cascade');
             $table->date('term_start');
-            $table->date('term_end');
+            $table->date('term_end')->nullable();
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
             $table->softDeletes();
         });

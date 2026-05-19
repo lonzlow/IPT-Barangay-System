@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Household;
 use App\Models\Resident;
 use Carbon\Carbon;
-use Barryvdh\DomPDF\Facade\Pdf;
+use Barryvdh\DomPDF\Facade\Pdf as PDF;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Yajra\DataTables\Facades\DataTables;
@@ -267,7 +267,7 @@ class ResidentController extends Controller
             'generatedAt' => now()->format('M d, Y H:i A'),
         ];
 
-        $pdf = Pdf::loadView('residents.export-pdf', $data);
+        $pdf = PDF::loadView('residents.export-pdf', $data);
         return $pdf->download('residents-list-' . now()->format('Y-m-d-His') . '.pdf');
     }
 }

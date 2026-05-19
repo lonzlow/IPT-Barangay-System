@@ -22,6 +22,7 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
+        'official_id',
         'email',
         'password',
         'last_accessed',
@@ -50,6 +51,11 @@ class User extends Authenticatable
             'password' => 'hashed',
             'last_accessed' => 'datetime',
         ];
+    }
+
+    public function official(): BelongsTo
+    {
+        return $this->belongsTo(Official::class, 'official_id');
     }
 
     /* ROLE IS NOW ON OFFICIAL TABLE. KINDLY MOVE THIS

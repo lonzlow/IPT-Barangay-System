@@ -6,17 +6,14 @@ use App\Models\Committee;
 use App\Models\Official;
 use App\Models\Resident;
 use App\Models\Role;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Models\OfficialAssignment;
 use Illuminate\Database\Seeder;
 
 class CommitteeOfficialSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-        // SEEDING COMMITEE DATA
+        // SEEDING COMMITTEE DATA
         $committees = [
             'Peace and Order',
             'Health',
@@ -28,9 +25,9 @@ class CommitteeOfficialSeeder extends Seeder
             'Barangay Disaster Risk Reduction and Management',
         ];
 
-        foreach ($committees as $committee) {
+        foreach ($committees as $committeeName) {
             Committee::firstOrCreate([
-                'committee_name' => $committee,
+                'name' => $committeeName,
             ]);
         }
 
@@ -41,27 +38,41 @@ class CommitteeOfficialSeeder extends Seeder
         $i = 0;
 
         foreach ($residents as $resident) {
-            Official::firstOrCreate([
+            $official = Official::firstOrCreate([
                 'official_number' =>
-                    'BO' . '-' .
+                    'BO-' .
                     str_pad(fake()->unique()->numberBetween(0, 9999), 4, '0', STR_PAD_LEFT) . '-' .
                     str_pad(fake()->unique()->numberBetween(0, 9999), 4, '0', STR_PAD_LEFT),
                 'resident_id' => $resident->id,
                 'role_id' => $roles[$i % $roles->count()]->id,
-                'committee_id' => $committees[$i % $committees->count()]->id,
                 'term_start' => '2025-11-30',
                 'term_end' => '2028-11-30',
+                'is_active' => true,
             ]);
+
+            // Assign each official to a committee
+            $committee = $committees[$i % $committees->count()];
+            OfficialAssignment::firstOrCreate([
+                'official_id' => $official->id,
+                'committee_id' => $committee->id,
+                'designation' => 'Member',
+            ]);
+
             $i++;
         }
 
-        $officials = Official::limit(count($committees))->get();
-        $i = 0;
-
-        foreach ($committees as $committee) {
-            $committee->update([
-                'chairperson_id' => $officials[$i++]->id,
-            ]);
+        // Assign chairpersons (first N officials as heads of committees)
+        $officials = Official::limit($committees->count())->get();
+        foreach ($committees as $index => $committee) {
+            OfficialAssignment::updateOrCreate(
+                [
+                    'official_id' => $officials[$index]->id,
+                    'committee_id' => $committee->id,
+                ],
+                [
+                    'designation' => 'Chairperson',
+                ]
+            );
         }
     }
 }

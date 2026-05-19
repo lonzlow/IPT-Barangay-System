@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::create('official_assignments', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('official_id')->constrained('officials')->cascadeOnDelete();
-            $table->foreignId('committee_id')->nullable()->constrained('committees')->cascadeOnDelete();
+            $table->foreignUuid('official_id')->constrained('officials')->onDelete('cascade');
+            $table->foreignId('committee_id')->constrained('committees')->onDelete('cascade');
             $table->string('designation');
             $table->timestamps();
             $table->softDeletes();
