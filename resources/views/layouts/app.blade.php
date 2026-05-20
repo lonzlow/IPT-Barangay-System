@@ -153,7 +153,7 @@
     <a href="{{ route('dashboard') }}" class="sidebar-brand">
         <div class="brand-icon"><i class="bi bi-buildings-fill"></i></div>
         <div>
-            <div class="brand-text">Barangay Uno</div>
+            <div class="brand-text">Barangay New Era</div>
             <div class="brand-sub">Management System</div>
         </div>
     </a>
@@ -283,7 +283,7 @@
     <div>
         <div class="topbar-title">@yield('page-title', 'Dashboard')</div>
         <div class="topbar-breadcrumb">
-            <span>Barangay Uno</span>
+            <span>Barangay New Era</span>
             <span class="bc-sep">›</span>
             <span class="bc-current">@yield('page-title', 'Dashboard')</span>
         </div>
