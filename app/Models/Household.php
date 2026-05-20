@@ -13,12 +13,10 @@ class Household extends Model
 
     protected $fillable = [
         "purok_id",
-        "head_first_name",
-        "head_middle_name",
-        "head_last_name",
-        "head_contact_number",
-        "notes",
-        "status",
+        "house_number",
+        "street",
+        "family_size",
+        "head_resident_id",
     ];
 
     public function residents(): HasMany

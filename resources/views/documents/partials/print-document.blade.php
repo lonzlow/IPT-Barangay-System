@@ -3,6 +3,19 @@
     $sealSrc = !empty($isPdf)
         ? str_replace('\\', '/', public_path($sealPath))
         : asset($sealPath);
+
+    $certifiedSignatureSrc = null;
+    if ($document->signature) {
+        $certifiedSignatureSrc = !empty($isPdf)
+            ? $document->signature->absolutePath()
+            : $document->signature->publicUrl();
+    } elseif ($document->signature_path) {
+        $certifiedSignatureSrc = !empty($isPdf)
+            ? (\Illuminate\Support\Facades\Storage::disk('public')->exists($document->signature_path)
+                ? \Illuminate\Support\Facades\Storage::disk('public')->path($document->signature_path)
+                : null)
+            : \Illuminate\Support\Facades\Storage::disk('public')->url($document->signature_path);
+    }
 @endphp
 
 <style>
@@ -107,6 +120,14 @@
         font-size: 12px;
     }
 
+    .issued-document .signature-image {
+        display: block;
+        max-height: 72px;
+        max-width: 220px;
+        margin: 0 auto 8px;
+        object-fit: contain;
+    }
+
     .issued-document .signature-name {
         display: inline-block;
         min-width: 230px;
@@ -115,6 +136,10 @@
         margin-top: 46px;
         font-weight: 700;
         text-transform: uppercase;
+    }
+
+    .issued-document .signature-name.with-signature-image {
+        margin-top: 8px;
     }
 
     .issued-document .doc-footer {
@@ -172,7 +197,10 @@
         </div>
         <div class="doc-signature-block">
             Certified by:
-            <div class="signature-name">{{ $document->issued_by }}</div>
+            @if($certifiedSignatureSrc)
+                <img src="{{ $certifiedSignatureSrc }}" alt="Official signature" class="signature-image">
+            @endif
+            <div class="signature-name {{ $certifiedSignatureSrc ? 'with-signature-image' : '' }}">{{ $document->issued_by }}</div>
             <div>Barangay Official</div>
         </div>
     </div>

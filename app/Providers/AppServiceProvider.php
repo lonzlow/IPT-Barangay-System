@@ -27,14 +27,14 @@ class AppServiceProvider extends ServiceProvider
 
         $admin     = ['Admin'];
         $captain   = ['Punong Barangay'];
-        $secretary = ['Barangay Secretary'];
-        $treasurer = ['Barangay Treasurer'];
+        $secretary = ['Secretary', 'Barangay Secretary'];
+        $treasurer = ['Treasurer', 'Barangay Treasurer'];
         $kagawad   = ['Kagawad'];
-        $sk        = ['SK Chairperson'];
-        $tanod     = ['Barangay Tanod'];
-        $bhw       = ['Health Worker / BHW'];
+        $sk        = ['SK Chair', 'SK Chairperson'];
+        $tanod     = ['Tanod', 'Barangay Tanod'];
+        $bhw       = ['BHW', 'Health Worker / BHW'];
         $bdrrm     = ['BDRRM Coordinator'];
-        $encoder   = ['Encoder / Data Entry Clerk'];
+        $encoder   = ['Encoder', 'Encoder / Data Entry Clerk'];
         $auditor   = ['Auditor'];
 
         Gate::define('dashboard.view', fn (User $u) => true);
@@ -50,5 +50,8 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('users.view', fn (User $u) => $u->official?->hasAnyRole($admin));
 
         Gate::define('documents.approve', fn (User $u) => $u->official?->hasAnyRole(array_merge($captain, $admin)));
+        Gate::define('committees.manage', fn (User $u) => $u->official?->hasAnyRole(array_merge($admin, $captain, $secretary)));
+        Gate::define('committee-records.manage', fn (User $u) => $u->official?->hasAnyRole(array_merge($admin, $captain, $secretary, $kagawad, $sk, $bhw, $bdrrm)));
+        Gate::define('signatures.manage', fn (User $u) => $u->official?->hasAnyRole($admin));
     }
 }

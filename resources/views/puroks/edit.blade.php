@@ -58,6 +58,7 @@
                                     </option>
                                 @endforeach
                             </select>
+                            <small style="color:#94a3b8;">Only residents assigned to households in this Purok can be selected.</small>
                             @error('leader_id')
                                 <small class="text-danger">{{ $message }}</small>
                             @enderror
@@ -85,7 +86,7 @@
                         <i class="bi bi-info-circle"></i> Current Info
                     </h5>
                     <div style="font-size:13px;color:#475569;">
-                        <p><strong>Households:</strong> {{ $purok->households()->count() }} household(s)</p>
+                        <p><strong>Households:</strong> {{ $householdCount }} household(s)</p>
                         <p><strong>Current Leader:</strong> {{ $purok->leader?->first_name ?? 'Not assigned' }} {{ $purok->leader?->last_name ?? '' }}</p>
                         <p><strong>Created:</strong> {{ $purok->created_at->format('M d, Y') }}</p>
                     </div>

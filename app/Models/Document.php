@@ -22,6 +22,8 @@ class Document extends Model
         'additional_notes',
         'rendered_html',
         'issued_by',
+        'issued_by_official_id',
+        'signature_id',
         'issued_date',
         'valid_until',
         'status',
@@ -53,6 +55,16 @@ class Document extends Model
     public function business(): BelongsTo
     {
         return $this->belongsTo(Business::class);
+    }
+
+    public function signature(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Signature::class, 'signature_id');
+    }
+
+    public function issuedByOfficial(): BelongsTo
+    {
+        return $this->belongsTo(Official::class, 'issued_by_official_id');
     }
 
     /**

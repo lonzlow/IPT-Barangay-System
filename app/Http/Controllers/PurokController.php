@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Purok;
 use App\Models\Resident;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PurokController extends Controller
 {
@@ -13,13 +14,24 @@ class PurokController extends Controller
      */
     public function index()
     {
-        $puroks = Purok::with('leader', 'households')
+        $puroks = Purok::with([
+                'leader',
+                'households.residents:id,household_id,voter_status',
+            ])
             ->withCount('households')
             ->paginate(15);
 
+        $puroks->getCollection()->transform(function (Purok $purok) {
+            $residents = $purok->households->flatMap->residents;
+            $purok->residents_count = $residents->count();
+            $purok->registered_voters_count = $residents->where('voter_status', 'Registered')->count();
+
+            return $purok;
+        });
+
         $statistics = [
             'total_puroks' => Purok::count(),
-            'total_households' => 0, // Loaded dynamically in view
+            'total_households' => \App\Models\Household::count(),
         ];
 
         return view('puroks.index', compact('puroks', 'statistics'));
@@ -30,9 +42,7 @@ class PurokController extends Controller
      */
     public function create()
     {
-        $residents = Resident::orderBy('first_name')->get();
-
-        return view('puroks.create', compact('residents'));
+        return view('puroks.create');
     }
 
     /**
@@ -43,7 +53,6 @@ class PurokController extends Controller
         $validated = $request->validate([
             'purok_name' => 'required|string|unique:puroks,purok_name',
             'description' => 'nullable|string',
-            'leader_id' => 'nullable|uuid|exists:residents,id',
         ]);
 
         Purok::create($validated);
@@ -57,12 +66,16 @@ class PurokController extends Controller
      */
     public function show(Purok $purok)
     {
-        $purok->load('leader', 'households');
+        $purok->load([
+            'leader',
+            'households.head_resident',
+            'households.residents' => fn ($query) => $query->orderBy('last_name')->orderBy('first_name'),
+        ]);
+
         $householdCount = $purok->households()->count();
-        $residentCount = Resident::whereIn('household_id', $purok->households()->pluck('id'))->count();
-        $voterCount = Resident::whereIn('household_id', $purok->households()->pluck('id'))
-            ->where('voter_status', 'Registered Voter')
-            ->count();
+        $residents = $purok->households->flatMap->residents;
+        $residentCount = $residents->count();
+        $voterCount = $residents->where('voter_status', 'Registered')->count();
 
         return view('puroks.show', compact('purok', 'householdCount', 'residentCount', 'voterCount'));
     }
@@ -72,9 +85,13 @@ class PurokController extends Controller
      */
     public function edit(Purok $purok)
     {
-        $residents = Resident::orderBy('first_name')->get();
+        $residents = Resident::whereHas('household', fn ($query) => $query->where('purok_id', $purok->id))
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
+        $householdCount = $purok->households()->count();
 
-        return view('puroks.edit', compact('purok', 'residents'));
+        return view('puroks.edit', compact('purok', 'residents', 'householdCount'));
     }
 
     /**
@@ -85,7 +102,14 @@ class PurokController extends Controller
         $validated = $request->validate([
             'purok_name' => 'required|string|unique:puroks,purok_name,' . $purok->id,
             'description' => 'nullable|string',
-            'leader_id' => 'nullable|uuid|exists:residents,id',
+            'leader_id' => [
+                'nullable',
+                'uuid',
+                Rule::exists('residents', 'id')->where(fn ($query) => $query->whereIn(
+                    'household_id',
+                    $purok->households()->select('id')
+                )),
+            ],
         ]);
 
         $purok->update($validated);
