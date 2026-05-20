@@ -11,6 +11,8 @@ use App\Models\Resident;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Http\File;
+use Illuminate\Support\Facades\Storage;
 
 class BlotterSeeder extends Seeder
 {
@@ -33,7 +35,7 @@ class BlotterSeeder extends Seeder
                 'incident_description' => 'Incident description for case ' . $i,
                 'incident_date' => now()->subDays($i * 2),
                 'handled_by' => $officials->random()->id,
-                'status' => ['open','ongoing','resolved','referred','dismissed'][array_rand(['open','ongoing','resolved','referred','dismissed'])],
+                'status' => ['pending','under investigation','resolved','referred','dismissed'][array_rand(['open','ongoing','resolved','referred','dismissed'])],
                 'filed_by' => $users->random()->id,
             ]);
 
@@ -63,23 +65,34 @@ class BlotterSeeder extends Seeder
             }
 
             // Add evidences
-            /* BlotterEvidence::create([
+            $photoPath = Storage::disk('public')->putFile(
+                'evidence/images',
+                new File(database_path('seeders/sample_files/lebron.jpg'))
+            );
+
+            BlotterEvidence::create([
                 'blotter_id' => $blotter->id,
-                'file_path' => 'uploads/evidence/case'.$i.'_photo.jpg',
+                'file_path' => 'storage/'.$photoPath, // accessible via /storage symlink
                 'file_extension' => 'jpg',
                 'mime_type' => 'image/jpeg',
                 'file_category' => 'image',
                 'caption' => 'Photo evidence for case '.$i,
             ]);
 
+            $videoPath = Storage::disk('public')->putFile(
+                'evidence/videos',
+                new File(database_path('seeders/sample_files/Guy explaining (Meme template).mp4'))
+            );
+
             BlotterEvidence::create([
                 'blotter_id' => $blotter->id,
-                'file_path' => 'uploads/evidence/case'.$i.'_video.mp4',
+                'file_path' => 'storage/'.$videoPath,
                 'file_extension' => 'mp4',
                 'mime_type' => 'video/mp4',
                 'file_category' => 'video',
                 'caption' => 'Video evidence for case '.$i,
-            ]); */
+            ]);
+
         }
     }
 }

@@ -12,20 +12,76 @@ class BlotterController extends Controller
      */
     public function index(Request $request)
     {
-        $blotters = Blotter::with('filedBy')->latest()->get();
+        $blotters = Blotter::with([
+            'filedBy.official.resident',
+            'complainant_resident',
+            'respondents.respondent',
+            'witnesses.resident_witness',
+        ])->latest()->get();
 
         if ($request->expectsJson() || $request->wantsJson()) {
+
+            $data = $blotters->map(function (Blotter $blotter) {
+
+                $resident = optional(
+                    optional($blotter->filedBy)->official
+                )->resident;
+
+                $filedByName = $resident
+                    ? trim(
+                        ($resident->first_name ?? '') . ' ' .
+                        ($resident->last_name ?? '')
+                    )
+                    : 'N/A';
+
+                $respondents = $blotter->respondents->map(function ($respondent) {
+
+                    if ($respondent->respondent) {
+                        return trim(
+                            ($respondent->respondent->first_name ?? '') . ' ' .
+                            ($respondent->respondent->last_name ?? '')
+                        );
+                    }
+
+                    return $respondent->respondent_name;
+                })->filter()->values();
+
+                $witnesses = $blotter->witnesses->map(function ($witness) {
+
+                    if ($witness->resident_witness) {
+                        return trim(
+                            ($witness->resident_witness->first_name ?? '') . ' ' .
+                            ($witness->resident_witness->last_name ?? '')
+                        );
+                    }
+
+                    return null;
+
+                })->filter()->values();
+
+                return [
+                    'id' => $blotter->id,
+                    'case_number' => $blotter->case_number,
+
+                    'complainant_name' => $blotter->complainant_name,
+
+                    'respondents' => $respondents,
+                    'witnesses' => $witnesses,
+
+                    'location' => $blotter->location,
+                    'incident_description' => $blotter->incident_description,
+
+                    'incident_date' => optional($blotter->incident_date)
+                        ?->format('Y-m-d H:i:s'),
+
+                    'status' => $blotter->status,
+
+                    'filed_by_name' => $filedByName,
+                ];
+            });
+
             return response()->json([
-                'data' => $blotters->map(function (Blotter $blotter) {
-                    return [
-                        'id' => $blotter->id,
-                        'case_number' => $blotter->case_number,
-                        'complainant' => $blotter->complainant,
-                        'respondent' => $blotter->respondent,
-                        'incident_date' => optional($blotter->incident_date)->toIso8601String(),
-                        'status' => $blotter->status,
-                    ];
-                }),
+                'data' => $data,
             ]);
         }
 
@@ -71,16 +127,84 @@ class BlotterController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Request $request, Blotter $blotter)
+    public function show(Request $request, String $blotter)
     {
+        $blotter = Blotter::with([
+            'filedBy.official.resident',
+            'complainant_resident',
+            'respondents.respondent',
+            'witnesses.resident_witness',
+            'evidences',
+        ])->findOrFail($blotter);
+
+        // COMMENT TEMPORARILY, CAN BE USE LATER
+        /* $blotter->load([
+            'filedBy.official.resident',
+            'respondents.respondent',
+            'witnesses.resident_witness',
+        ]);
+
+        $resident = optional(
+            optional($blotter->filedBy)->official
+        )->resident;
+
+        $filedByName = $resident
+            ? trim(
+                ($resident->first_name ?? '') . ' ' .
+                ($resident->last_name ?? '')
+            )
+            : 'N/A';
+
+        $respondents = $blotter->respondents->map(function ($respondent) {
+
+            if ($respondent->respondent) {
+                return trim(
+                    ($respondent->respondent->first_name ?? '') . ' ' .
+                    ($respondent->respondent->last_name ?? '')
+                );
+            }
+
+            return $respondent->respondent_name;
+
+        })->filter()->values();
+
+        $witnesses = $blotter->witnesses->map(function ($witness) {
+
+            if ($witness->resident_witness) {
+                return trim(
+                    ($witness->resident_witness->first_name ?? '') . ' ' .
+                    ($witness->resident_witness->last_name ?? '')
+                );
+            }
+
+            return null;
+
+        })->filter()->values();
+
         if ($request->expectsJson() || $request->wantsJson()) {
+
             return response()->json([
                 'success' => true,
-                'data' => $blotter->load('filedBy'),
-            ]);
-        }
+                'data' => [
+                    'id' => $blotter->id,
+                    'case_number' => $blotter->case_number,
 
-        return redirect()->route('blotters.index');
+                    'complainant_name' => $blotter->complainant_name,
+
+                    'respondents' => $respondents,
+                    'witnesses' => $witnesses,
+
+                    'location' => $blotter->location,
+                    'incident_description' => $blotter->incident_description,
+                    'incident_date' => $blotter->incident_date,
+                    'status' => $blotter->status,
+
+                    'filed_by_name' => $filedByName,
+                ]
+            ]);
+        } */
+
+        return view('blotters.info', compact('blotter'));
     }
 
     /**
