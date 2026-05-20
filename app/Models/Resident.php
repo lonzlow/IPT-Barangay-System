@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -51,6 +52,16 @@ class Resident extends Model
     public function business_owner(): HasOne
     {
         return $this->hasOne(BusinessOwner::class);
+    }
+
+    public function blotter_respondents(): HasMany
+    {
+        return $this->hasMany(BlotterRespondent::class, 'respondent_id');
+    }
+
+    public function blotter_witnesses(): HasMany
+    {
+        return $this->hasMany(BlotterWitness::class, 'witness_id');
     }
 
     /**

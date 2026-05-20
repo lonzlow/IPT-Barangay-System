@@ -40,5 +40,6 @@ class DatabaseSeeder extends Seeder
         $this->call(CommitteeOfficialSeeder::class);
         $this->call(UserSeeder::class);
         $this->call(BusinessSeeder::class);
+        $this->call(BlotterSeeder::class);
     }
 }

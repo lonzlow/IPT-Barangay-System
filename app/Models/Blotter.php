@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,22 +10,24 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Blotter extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, HasUuids, SoftDeletes;
 
     protected $fillable = [
         'case_number',
-        'complainant',
-        'respondent',
+        'complainant_id',
+        'complainant_name',
+        'respondent_id',
+        'respondent_name',
+        'location',
         'incident_description',
         'incident_date',
+        'handled_by',
         'status',
-        'parties',
         'filed_by',
     ];
 
     protected $casts = [
         'incident_date' => 'datetime',
-        'parties' => 'json',
         'status' => 'string',
     ];
 
