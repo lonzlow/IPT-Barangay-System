@@ -43,6 +43,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/residents/data', [ResidentController::class, 'getResidents'])->name('residents.data');
     Route::get('/residents/demographics', [ResidentController::class, 'demographics'])->name('residents.demographics');
     Route::get('/residents/export-pdf', [ResidentController::class, 'exportPDF'])->name('residents.exportPDF');
+    Route::patch('/residents/{id}/recover', [ResidentController::class, 'recover'])->name('residents.recover');
     Route::resource('/residents', ResidentController::class);
 
     // DOCUMENTS ROUTE
@@ -82,4 +83,4 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

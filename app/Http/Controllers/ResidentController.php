@@ -18,7 +18,6 @@ class ResidentController extends Controller
     public function index()
     {
         $totalResidents = Resident::count();
-
         $activeCount = Resident::where('residency_status', 'Active')->count();
         $deceasedCount = Resident::where('residency_status', 'Deceased')->count();
         $transferredCount = Resident::where('residency_status', 'Transferred')->count();
@@ -27,6 +26,35 @@ class ResidentController extends Controller
         $deceasedPercentage = $totalResidents > 0 ? number_format(($deceasedCount / $totalResidents) * 100, 1) : 0;
         $transferredPercentage = $totalResidents > 0 ? number_format(($transferredCount / $totalResidents) * 100, 1) : 0;
 
+        $maleCount = Resident::where('residency_status', 'Active')->where('gender', 'Male')->count();
+        $femaleCount = Resident::where('residency_status', 'Active')->where('gender', 'Female')->count();
+
+        $residentsWithAge = Resident::selectRaw("
+        CASE 
+            WHEN TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 0 AND 12 THEN '0-12'
+            WHEN TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 13 AND 17 THEN '13-17'
+            WHEN TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 18 AND 24 THEN '18-24'
+            WHEN TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 25 AND 34 THEN '25-34'
+            WHEN TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 35 AND 49 THEN '35-49'
+            WHEN TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN 50 AND 64 THEN '50-64'
+            ELSE '65+'
+        END as age_group, COUNT(*) as count
+    ")->groupBy('age_group')->pluck('count', 'age_group')->toArray();
+
+        $ageGroups = ['0-12', '13-17', '18-24', '25-34', '35-49', '50-64', '65+'];
+        $ageData = [];
+        foreach ($ageGroups as $group) {
+            $ageData[] = $residentsWithAge[$group] ?? 0;
+        }
+
+        $registeredVoters = Resident::whereRaw("TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= 18")
+            ->where('voter_status', 'Registered')
+            ->count();
+
+        $unregisteredVoters = Resident::whereRaw("TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= 18")
+            ->where('voter_status', 'Unregistered')
+            ->count();
+
         return view('residents.index', compact(
             'totalResidents',
             'activeCount',
@@ -34,7 +62,12 @@ class ResidentController extends Controller
             'transferredCount',
             'activePercentage',
             'deceasedPercentage',
-            'transferredPercentage'
+            'transferredPercentage',
+            'maleCount',
+            'femaleCount',
+            'ageData',
+            'registeredVoters',
+            'unregisteredVoters'
         ));
     }
 
@@ -88,8 +121,13 @@ class ResidentController extends Controller
      */
     public function edit(string $id)
     {
-        $resident = Resident::findOrFail($id);
+        $resident = Resident::withTrashed()->findOrFail($id);
         $households = Household::with('purok')->orderBy('house_number')->get();
+
+        // Kung AJAX ang tumawag, JSON lang ang ibabalik para sa Modal natin
+        if (request()->ajax()) {
+            return response()->json($resident);
+        }
 
         return view('residents.edit', compact('resident', 'households'));
     }
@@ -99,7 +137,7 @@ class ResidentController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $resident = Resident::findOrFail($id);
+        $resident = Resident::withTrashed()->findOrFail($id);
 
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
@@ -113,10 +151,14 @@ class ResidentController extends Controller
             'civil_status' => ['required', Rule::in(['Single', 'Married', 'Widowed', 'Separated', 'Divorced'])],
             'voter_status' => ['required', Rule::in(['Registered', 'Unregistered', 'Suspended'])],
             'residency_status' => ['required', Rule::in(['Active', 'Deceased', 'Transferred'])],
-            'household_id' => ['required', 'exists:households,id'],
         ]);
 
         $resident->update($validated);
+
+        // Kung AJAX ang nag-save, mag-return ng success message para sa modal closure
+        if ($request->ajax()) {
+            return response()->json(['success' => 'Resident updated successfully.']);
+        }
 
         return redirect()
             ->route('residents.edit', $resident->id)
@@ -131,6 +173,10 @@ class ResidentController extends Controller
         $resident = Resident::findOrFail($id);
         $resident->delete();
 
+        if (request()->ajax()) {
+            return response()->json(['success' => 'Resident soft-deleted successfully.']);
+        }
+
         return redirect()
             ->route('residents.index')
             ->with('success', 'Resident deactivated successfully.');
@@ -138,9 +184,21 @@ class ResidentController extends Controller
 
     public function getResidents(Request $request)
     {
-        $residents = Resident::with(['household.purok']);
+        $user = auth()->user();
+        $isAdminOrSecretary = false;
 
-        // Apply custom filters (not search - Yajra handles search automatically)
+        if ($user) {
+            $roleId = $user->role_id ?? ($user->official->role_id ?? null);
+
+            if ($roleId !== null && in_array((int) $roleId, [1, 3])) {
+                $isAdminOrSecretary = true;
+            }
+        }
+
+        // Kung admin/secretary, isama ang deleted (withTrashed). Kung hindi, active lang.
+        $residents = $isAdminOrSecretary ? Resident::withTrashed() : Resident::query();
+        $residents->with(['household.purok']);
+
         if ($request->has('gender') && $request->input('gender')) {
             $residents->where('gender', $request->input('gender'));
         }
@@ -157,66 +215,85 @@ class ResidentController extends Controller
             $residents->where('civil_status', $request->input('civil_status'));
         }
 
-        // Age range filter
         if ($request->has('age_from') && $request->input('age_from')) {
             $ageFrom = (int) $request->input('age_from');
-            $residents->whereRaw("YEAR(CURDATE()) - YEAR(birthdate) >= ?", [$ageFrom]);
+            $residents->whereRaw("TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= ?", [$ageFrom]);
         }
 
         if ($request->has('age_to') && $request->input('age_to')) {
             $ageTo = (int) $request->input('age_to');
-            $residents->whereRaw("YEAR(CURDATE()) - YEAR(birthdate) <= ?", [$ageTo]);
+            $residents->whereRaw("TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) <= ?", [$ageTo]);
         }
 
         return DataTables::of($residents)
+            ->addIndexColumn()
+            ->addColumn('middle_name', function ($resident) {
+                return $resident->middle_name ? strtoupper(substr($resident->middle_name, 0, 1)) . '.' : '';
+            })
             ->addColumn('age', function ($resident) {
-                return $resident->age ?? 'N/A';
+                return $resident->birthdate ? Carbon::parse($resident->birthdate)->age : 'N/A';
             })
             ->addColumn('household_purok', function ($resident) {
-                $household = $resident->household
-                    ? $resident->household->house_number . ' ' . $resident->household->street . ' - '
-                    : 'N/A -';
-                $purok = $resident->household && $resident->household->purok
-                    ? $resident->household->purok->purok_name
-                    : 'N/A';
-                return $household . ' - ' . $purok;
+                if ($resident->household) {
+                    $houseNumber = $resident->household->house_number ?? '';
+                    $street = $resident->household->street ?? '';
+                    $purokName = $resident->household->purok ? $resident->household->purok->purok_name : 'No Purok';
+                    return trim("{$houseNumber} {$street}") . " / {$purokName}";
+                }
+                return 'N/A';
             })
             ->addColumn('voter', function ($resident) {
                 if ($resident->voter_status === 'Registered') {
-                    return '<span class="badge p-2 py-3 bg-success">Registered</span>';
+                    return '<span class="badge p-2 bg-success">Registered</span>';
                 } elseif ($resident->voter_status === 'Unregistered') {
-                    return '<span class="badge p-2 py-3 bg-danger">Unregistered</span>';
+                    return '<span class="badge p-2 bg-danger">Unregistered</span>';
                 } elseif ($resident->voter_status === 'Suspended') {
-                    return '<span class="badge p-2 py-3 bg-warning">Suspended</span>';
-                } else {
-                    return '<span class="badge p-2 py-3 bg-secondary">Unknown</span>';
+                    return '<span class="badge p-2 bg-warning">Suspended</span>';
+                }
+                return '<span class="badge p-2 bg-secondary">Unknown</span>';
+            })
+            ->addColumn('civil_status', function ($resident) {
+                $deletedBadge = $resident->trashed() ? ' <span class="badge bg-dark" style="font-size:10px;">Deleted</span>' : '';
+
+                // Kunin ang civil status at gawing case-insensitive para sure (hal. "Single" o "single")
+                $status = ucfirst(strtolower($resident->civil_status));
+
+                switch ($status) {
+                    case 'Single':
+                        return '<span class="badge p-2 bg-primary">Single</span>' . $deletedBadge;
+                    case 'Married':
+                        return '<span class="badge p-2 bg-success">Married</span>' . $deletedBadge;
+                    case 'Widowed':
+                        return '<span class="badge p-2 bg-secondary">Widowed</span>' . $deletedBadge;
+                    case 'Separated':
+                        return '<span class="badge p-2 bg-warning text-dark">Separated</span>' . $deletedBadge;
+                    case 'Divorced':
+                        return '<span class="badge p-2 bg-danger">Divorced</span>' . $deletedBadge;
+                    default:
+                        return '<span class="badge p-2 bg-info text-dark">' . ($status ?: 'Unknown') . '</span>' . $deletedBadge;
                 }
             })
-            ->addColumn('residency', function ($resident) {
-                if ($resident->residency_status === 'Active') {
-                    return '<span class="badge p-2 py-3 bg-success">Active</span>';
-                } elseif ($resident->residency_status === 'Deceased') {
-                    return '<span class="badge p-2 py-3 bg-danger">Deceased</span>';
-                } elseif ($resident->residency_status === 'Transferred') {
-                    return '<span class="badge p-2 py-3 bg-warning">Transferred</span>';
-                } else {
-                    return '<span class="badge p-2 py-3 bg-secondary">Unknown</span>';
+            ->addColumn('action', function ($resident) use ($isAdminOrSecretary) {
+                // LAHAT ng roles (Admin, Secretary, at Others) ay may Edit button para sa resident
+                $editBtn = '<button type="button" class="btn btn-sm btn-light border" style="border-radius:6px;padding:3px 8px;" onclick="openEditModal(\'' . $resident->id . '\')" title="Edit"><i class="bi bi-pencil" style="font-size:13px;"></i></button>';
+
+                $actionBtn = '';
+
+                // DITO SA LOOB: Para sa ADMIN at SECRETARY lamang ang logic na ito
+                if ($isAdminOrSecretary) {
+                    if ($resident->trashed()) {
+                        // Kung deleted resident ang tinitingnan ng Admin/Secretary, magkatabi ang Edit at Recover
+                        $actionBtn = '<button type="button" class="btn btn-sm btn-light text-success border" style="border-radius:6px;padding:3px 8px;" onclick="confirmRecover(\'' . $resident->id . '\')" title="Recover"><i class="bi bi-arrow-counterclockwise" style="font-size:13px;"></i></button>';
+                    } else {
+                        // Kung active resident naman, magkatabi ang Edit at Delete
+                        $actionBtn = '<button type="button" class="btn btn-sm btn-light text-danger border" style="border-radius:6px;padding:3px 8px;" onclick="confirmDelete(\'' . $resident->id . '\')" title="Delete"><i class="bi bi-trash" style="font-size:13px;"></i></button>';
+                    }
                 }
+
+                // Pagsasamahin ang Edit button at ang karagdagang button (kung meron)
+                return '<div class="d-flex gap-1">' . $editBtn . $actionBtn . '</div>';
             })
-            ->addColumn('action', function ($resident) {
-                return '<div class="d-flex gap-1">
-                    <a href="' . route('residents.edit', $resident->id) . '" class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Edit">
-                        <i class="bi bi-pencil" style="font-size:13px;"></i>
-                    </a>
-                    <a href="' . route('residents.edit', ['resident' => $resident->id, 'section' => 'status']) . '" class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Update Status">
-                        <i class="bi bi-shield-fill" style="font-size:13px;"></i>
-                    </a>
-                    <a href="' . route('residents.edit', ['resident' => $resident->id, 'section' => 'deactivate']) . '" class="btn btn-sm btn-light text-danger" style="border-radius:6px;padding:3px 8px;" title="Deactivate">
-                        <i class="bi bi-person-x-fill" style="font-size:13px;"></i>
-                    </a>
-                </div>';
-            })
-            ->rawColumns(['household_purok', 'voter', 'residency', 'action'])
+            ->rawColumns(['voter', 'civil_status', 'action'])
             ->make(true);
     }
 

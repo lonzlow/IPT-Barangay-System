@@ -269,17 +269,26 @@ Route: GET /residents → route('residents.index')
                 </div>
 
                 <div class="col-md-4">
-                    <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:4px;">Age
-                        Range</label>
+                    <label style="font-size:11px; color:#94a3b8; font-weight:600; display:block; margin-bottom:4px;">
+                        Age Range
+                    </label>
                     <div class="d-flex gap-2 align-items-center">
                         <input type="number" id="age-from" class="form-control form-control-sm" placeholder="From"
-                            style="font-size:12px;" min="0" max="120" onchange="filterTable()">
-                        <span style="color:#94a3b8;">−</span>
+                            style="font-size:13px; height: 42px !important; border-radius:6px; box-shadow: none;" min="0"
+                            max="120" onchange="filterTable()">
+
+                        <span style="color:#94a3b8; font-weight: bold;">−</span>
+
                         <input type="number" id="age-to" class="form-control form-control-sm" placeholder="To"
-                            style="font-size:12px;" min="0" max="120" onchange="filterTable()">
-                        <button class="btn btn-sm btn-outline-secondary" onclick="clearFilters()"
-                            style="font-size:11px;border-radius:6px;white-space:nowrap;"><i class="bi bi-x"></i>
-                            Clear</button>
+                            style="font-size:13px; height: 42px !important; border-radius:6px; box-shadow: none;" min="0"
+                            max="120" onchange="filterTable()">
+
+                        <button
+                            class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center"
+                            onclick="clearFilters()"
+                            style="font-size:13px; height: 42px !important; border-radius:6px; white-space:nowrap; gap: 4px; box-shadow: none; padding: 0 14px;">
+                            <i class="bi bi-x" style="font-size: 16px; line-height: 1;"></i> Clear
+                        </button>
                     </div>
                 </div>
             </div>
@@ -290,7 +299,7 @@ Route: GET /residents → route('residents.index')
         <div class="table-header">
             <div class="d-flex align-items-center justify-content-between gap-2">
                 <span class="heading">Residents <span class="badge bg-light text-secondary fw-600 ms-1"
-                        style="font-size:12px;">4,821</span></span>
+                        style="font-size:12px;">{{ number_format($totalResidents) }}</span></span>
                 <div class="d-flex gap-1">
                     <button class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
                         style="font-size:12.5px;border-radius:7px;" data-bs-toggle="collapse" data-bs-target="#filterPanel">
@@ -305,31 +314,35 @@ Route: GET /residents → route('residents.index')
             </div>
         </div>
         <div class="table-responsive">
-            <table class="display" id="residents-table" style="width:100%;">
-                <thead>
+            <table id="residents-table" class="table table-hover align-middle mb-0" style="width:100%; font-size: 13px;">
+                <thead class="bg-light"
+                    style="color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;">
                     <tr>
-                        <th style="width:8%;">ID</th>
-                        <th style="width:9%;">First Name</th>
-                        <th style="width:5%;">M.I.</th>
-                        <th style="width:9%;">Last Name</th>
-                        <th style="width:6%;">Suffix</th>
-                        <th style="width:5%;">Age</th>
-                        <th style="width:12%;">Email</th>
-                        <th style="width:10%;">Contact No.</th>
-                        <th style="width:7%;">Gender</th>
-                        <th style="width:13%;">Address / Purok</th>
-                        <th style="width:8%;">Voter</th>
-                        <th style="width:8%;">Status</th>
-                        <th style="width:8%;">Actions</th>
+                        <th style="width: 50px;">ID</th>
+                        <th>First Name</th>
+                        <th>M.I.</th>
+                        <th>Last Name</th>
+                        <th>Suffix</th>
+                        <th>Age</th>
+                        <th>Email</th>
+                        <th>Contact No.</th>
+                        <th>Gender</th>
+                        <th>Address / Purok</th>
+                        <th>Voter</th>
+                        <th>Status</th>
+                        <th style="width: 100px; text-align: center;">Actions</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody style="color: #334155;">
                 </tbody>
             </table>
         </div>
         <div
-            style="padding:12px 16px;border-top:1px solid #f1f5f9;font-size:12px;color:#64748b;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;">
-            <span id="table-info">Showing 0 entries</span>
+            style="padding:12px 16px; border-top:1px solid #f1f5f9; font-size:12px; color:#64748b; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap: 12px;">
+            <span id="table-info" style="font-weight: 500;">Showing 0 entries</span>
+
+            <nav id="custom-pagination" aria-label="Table navigation">
+            </nav>
         </div>
     </div>
 
@@ -341,7 +354,7 @@ Route: GET /residents → route('residents.index')
             type: 'doughnut',
             data: {
                 labels: ['Male', 'Female'],
-                datasets: [{ data: [2310, 2180], backgroundColor: ['#1a56db', '#f472b6'], borderWidth: 0, hoverOffset: 6 }]
+                datasets: [{ data: [{{ $maleCount }}, {{ $femaleCount }}], backgroundColor: ['#1a56db', '#f472b6'], borderWidth: 0, hoverOffset: 6 }]
             },
             options: {
                 cutout: '68%', maintainAspectRatio: false,
@@ -353,7 +366,7 @@ Route: GET /residents → route('residents.index')
             type: 'bar',
             data: {
                 labels: ['0–12', '13–17', '18–24', '25–34', '35–49', '50–64', '65+'],
-                datasets: [{ label: 'Residents', data: [620, 410, 590, 840, 970, 760, 631], backgroundColor: '#1a56db', borderRadius: 6, borderSkipped: false }]
+                datasets: [{ label: 'Residents', data: {!! json_encode($ageData) !!}, backgroundColor: '#1a56db', borderRadius: 6, borderSkipped: false }]
             },
             options: {
                 maintainAspectRatio: false,
@@ -369,60 +382,352 @@ Route: GET /residents → route('residents.index')
             type: 'doughnut',
             data: {
                 labels: ['Registered', 'Not Registered'],
-                datasets: [{ data: [2850, 820], backgroundColor: ['#1a56db', '#e2e8f0'], borderWidth: 0, hoverOffset: 4 }]
+                datasets: [{ data: [{{ $registeredVoters }}, {{ $unregisteredVoters }}], backgroundColor: ['#1a56db', '#e2e8f0'], borderWidth: 0, hoverOffset: 4 }]
             },
             options: { cutout: '72%', maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
 
-        // Filter table function
-        function filterTable() {
-            table.draw();
-        }
-
-        // Clear all filters
-        function clearFilters() {
-            document.getElementById('gender-filter').value = '';
-            document.getElementById('residency-filter').value = '';
-            document.getElementById('voter-filter').value = '';
-            document.getElementById('civil-status-filter').value = '';
-            document.getElementById('age-from').value = '';
-            document.getElementById('age-to').value = '';
-            filterTable();
-        }
-
-        // YAJRA RESIDENTS TABLE
         var table;
+
         $(document).ready(function () {
             table = $('#residents-table').DataTable({
                 processing: true,
                 serverSide: true,
+                pageLength: 10,
+                lengthChange: false,
+                searching: true,
+
+                // 't' lang para table element lang ang ilabas ni Yajra. Papatayin nito ang lahat ng default UI controls.
+                dom: 't',
+
                 ajax: {
                     url: "{{ route('residents.data') }}",
+                    type: "GET",
                     data: function (d) {
-                        d.gender = document.getElementById('gender-filter').value;
-                        d.residency_status = document.getElementById('residency-filter').value;
-                        d.voter_status = document.getElementById('voter-filter').value;
-                        d.civil_status = document.getElementById('civil-status-filter').value;
-                        d.age_from = document.getElementById('age-from').value;
-                        d.age_to = document.getElementById('age-to').value;
+                        d.gender = $('#gender-filter').val() || '';
+                        d.residency_status = $('#residency-filter').val() || '';
+                        d.voter_status = $('#voter-filter').val() || '';
+                        d.civil_status = $('#civil-status-filter').val() || '';
+                        d.age_from = $('#age-from').val() || '';
+                        d.age_to = $('#age-to').val() || '';
                     }
                 },
                 columns: [
-                    { data: 'id', name: 'id' },
+                    { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
                     { data: 'first_name', name: 'first_name' },
-                    { data: 'middle_name', name: 'middle_name' },
+                    { data: 'middle_name', name: 'middle_name', orderable: false, searchable: false },
                     { data: 'last_name', name: 'last_name' },
                     { data: 'suffix', name: 'suffix' },
                     { data: 'age', name: 'age', orderable: false, searchable: false },
                     { data: 'email', name: 'email' },
                     { data: 'contact_number', name: 'contact_number' },
                     { data: 'gender', name: 'gender' },
-                    { data: 'household_purok', name: 'household_purok' },
+                    { data: 'household_purok', name: 'household_purok', orderable: false },
                     { data: 'voter', name: 'voter', orderable: false, searchable: false },
-                    { data: 'residency', name: 'residency', orderable: false, searchable: false },
-                    { data: 'action', name: 'action', orderable: false, searchable: false },
-                ]
+                    { data: 'civil_status', name: 'civil_status', orderable: false, searchable: false },
+                    { data: 'action', name: 'action', orderable: false, searchable: false }
+                ],
+
+                // Hahawakan natin ang UI updates tuwing magbabago ang data o magpi-filter ang user
+                drawCallback: function (settings) {
+                    var api = this.api();
+                    var pageInfo = api.page.info();
+
+                    // 1. UPDATE LIVE COUNTER VALUE (#table-info)
+                    if (pageInfo.recordsTotal > 0) {
+                        var startEntry = pageInfo.start + 1;
+                        var endEntry = pageInfo.end;
+                        var totalEntries = pageInfo.recordsDisplay;
+
+                        $('#table-info').text('Showing ' + startEntry + ' to ' + endEntry + ' of ' + totalEntries + ' entries');
+                    } else {
+                        $('#table-info').text('Showing 0 entries');
+                    }
+
+                    // 2. DYNAMICALLY BUILD CUSTOM DESIGN PAGINATION UI
+                    var navContainer = $('#custom-pagination');
+                    navContainer.empty(); // Linisin ang lumang buttons
+
+                    // Huwag magpakita ng pagination buttons kung 1 page lang ang kabuuang data
+                    if (pageInfo.pages <= 1) {
+                        return;
+                    }
+
+                    var ul = $('<ul class="pagination pagination-sm mb-0 d-flex align-items-center" style="gap: 4px;"></ul>');
+
+                    // --- BUTTON: PREVIOUS ---
+                    var prevClass = (pageInfo.page === 0) ? 'disabled' : '';
+                    var prevBtn = $('<li class="page-item ' + prevClass + '"><a class="page-link px-2 py-1 text-secondary border" href="#" data-page="prev" style="border-radius: 6px; font-size: 11.5px; font-weight: 500; background: #fff; box-shadow: none;">Previous</a></li>');
+                    ul.append(prevBtn);
+
+                    // --- BUTTONS: PAGE NUMBERS ---
+                    // Gumawa ng sliding window loop para hindi sumabog ang UI kapag marami nang pages
+                    var startPage = Math.max(0, pageInfo.page - 2);
+                    var endPage = Math.min(pageInfo.pages - 1, startPage + 4);
+                    if (endPage - startPage < 4) {
+                        startPage = Math.max(0, endPage - 4);
+                    }
+
+                    for (var i = startPage; i <= endPage; i++) {
+                        var activeClass = (pageInfo.page === i) ? 'active' : '';
+                        var activeStyle = (pageInfo.page === i)
+                            ? 'background-color: #1a56db; border-color: #1a56db; color: #fff; font-weight: 600;'
+                            : 'background: #fff; color: #475569;';
+
+                        var pageBtn = $('<li class="page-item ' + activeClass + '"><a class="page-link d-inline-flex align-items-center justify-content-center border" href="#" data-page="' + i + '" style="border-radius: 6px; width: 28px; height: 28px; font-size: 11.5px; box-shadow: none; ' + activeStyle + '">' + (i + 1) + '</a></li>');
+                        ul.append(pageBtn);
+                    }
+
+                    // --- BUTTON: NEXT ---
+                    var nextClass = (pageInfo.page === pageInfo.pages - 1) ? 'disabled' : '';
+                    var nextBtn = $('<li class="page-item ' + nextClass + '"><a class="page-link px-2 py-1 text-secondary border" href="#" data-page="next" style="border-radius: 6px; font-size: 11.5px; font-weight: 500; background: #fff; box-shadow: none;">Next</a></li>');
+                    ul.append(nextBtn);
+
+                    navContainer.append(ul);
+                }
+            });
+
+            // 3. EVENT LISTENER PARA SA PAG-CLICK NG MGA PANIBAGONG BUTTONS
+            $(document).off('click', '#custom-pagination .page-link').on('click', '#custom-pagination .page-link', function (e) {
+                e.preventDefault();
+
+                var parentItem = $(this).parent();
+                if (parentItem.hasClass('disabled') || parentItem.hasClass('active')) {
+                    return; // Balewalain kung bawal i-click
+                }
+
+                var targetPage = $(this).data('page');
+
+                if (targetPage === 'prev') {
+                    table.page('previous').draw('page');
+                } else if (targetPage === 'next') {
+                    table.page('next').draw('page');
+                } else {
+                    table.page(parseInt(targetPage)).draw('page');
+                }
             });
         });
+
+        function filterTable() {
+            table.ajax.reload();
+        }
+
+        function clearFilters() {
+            $('select').val('');
+            $('#age-from, #age-to').val('');
+            table.ajax.reload();
+        }
+
+        function openEditModal(id) {
+            var url = "{{ route('residents.edit', ':id') }}".replace(':id', id);
+
+            $.ajax({
+                url: url,
+                type: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                success: function (data) {
+                    $('#edit_resident_id').val(data.id);
+                    $('#edit_first_name').val(data.first_name);
+                    $('#edit_middle_name').val(data.middle_name);
+                    $('#edit_last_name').val(data.last_name);
+                    $('#edit_suffix').val(data.suffix);
+                    $('#edit_birthdate').val(data.birthdate);
+                    $('#edit_gender').val(data.gender);
+                    $('#edit_civil_status').val(data.civil_status);
+                    $('#edit_email').val(data.email);
+                    $('#edit_contact_number').val(data.contact_number);
+                    $('#edit_voter_status').val(data.voter_status);
+                    $('#edit_residency_status').val(data.residency_status);
+
+                    $('#editResidentModal').modal('show');
+                }
+            });
+        }
+
+        $('#editResidentForm').on('submit', function (e) {
+            e.preventDefault();
+            var id = $('#edit_resident_id').val();
+            var url = "{{ route('residents.update', ':id') }}".replace(':id', id);
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                data: $(this).serialize(),
+                success: function (response) {
+                    $('#editResidentModal').modal('hide');
+                    table.ajax.reload(null, false);
+                    alert("Resident updated successfully!");
+                }
+            });
+        });
+
+        function confirmDelete(id) {
+            if (confirm("Sigurado ka ba na gusto mong i-delete ang residenteng ito?")) {
+                var url = "{{ route('residents.destroy', ':id') }}".replace(':id', id);
+
+                $.ajax({
+                    url: url,
+                    type: 'DELETE',
+                    data: { _token: "{{ csrf_token() }}" },
+                    success: function (response) {
+                        table.ajax.reload(null, false);
+                        alert("Resident soft-deleted successfully.");
+                    }
+                });
+            }
+        }
+
+        function confirmRecover(id) {
+            if (confirm("Sigurado ka ba na gusto mong i-recover ang residenteng ito?")) {
+                // Tiyakin na mayroon kang katapat na route para sa restore/recover sa web.php mo
+                var url = "{{ route('residents.recover', ':id') }}".replace(':id', id);
+
+                $.ajax({
+                    url: url,
+                    type: 'POST', // Karaniwang POST o PATCH ang restore
+                    data: {
+                        _token: "{{ csrf_token() }}",
+                        _method: "PATCH" // Kung PATCH ang gamit mo sa route, kung hindi ay alisin itong linyang ito
+                    },
+                    success: function (response) {
+                        table.ajax.reload(null, false); // I-reload ang table nang hindi nababalik sa page 1
+                        alert("Resident recovered successfully.");
+                    },
+                    error: function (xhr) {
+                        alert("May nagpawalang-bisa sa pag-recover. Pakisuri ang logs.");
+                    }
+                });
+            }
+        }
     </script>
+    <div class="modal fade" id="editResidentModal" tabindex="-1" aria-labelledby="editResidentModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content"
+                style="border-radius: 12px; border: none; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);">
+                <div class="modal-header px-4 pt-4 pb-2" style="border: none;">
+                    <h5 class="modal-title fw-bold text-dark" id="editResidentModalLabel"
+                        style="font-size: 16px; letter-spacing: -0.025em;">Edit Resident Information</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
+                        style="box-shadow: none; font-size: 12px;"></button>
+                </div>
+                <form id="editResidentForm">
+                    @csrf
+                    @method('PUT')
+                    <input type="hidden" id="edit_resident_id">
+
+                    <div class="modal-body px-4 pb-4 pt-2" style="font-size: 13px; color: #475569;">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="mb-1"
+                                    style="font-weight: 600; color: #64748b; font-size: 11px; uppercase; letter-spacing: 0.05em;">First
+                                    Name</label>
+                                <input type="text" id="edit_first_name" name="first_name"
+                                    class="form-control form-control-sm" required
+                                    style="border-radius: 6px; border-color: #cbd5e1; height: 36px; box-shadow: none;">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="mb-1"
+                                    style="font-weight: 600; color: #64748b; font-size: 11px; uppercase; letter-spacing: 0.05em;">Middle
+                                    Name</label>
+                                <input type="text" id="edit_middle_name" name="middle_name"
+                                    class="form-control form-control-sm"
+                                    style="border-radius: 6px; border-color: #cbd5e1; height: 36px; box-shadow: none;">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="mb-1"
+                                    style="font-weight: 600; color: #64748b; font-size: 11px; uppercase; letter-spacing: 0.05em;">Last
+                                    Name</label>
+                                <input type="text" id="edit_last_name" name="last_name" class="form-control form-control-sm"
+                                    required
+                                    style="border-radius: 6px; border-color: #cbd5e1; height: 36px; box-shadow: none;">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="mb-1"
+                                    style="font-weight: 600; color: #64748b; font-size: 11px; uppercase; letter-spacing: 0.05em;">Suffix</label>
+                                <input type="text" id="edit_suffix" name="suffix" class="form-control form-control-sm"
+                                    style="border-radius: 6px; border-color: #cbd5e1; height: 36px; box-shadow: none;">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="mb-1"
+                                    style="font-weight: 600; color: #64748b; font-size: 11px; uppercase; letter-spacing: 0.05em;">Birthdate</label>
+                                <input type="date" id="edit_birthdate" name="birthdate" class="form-control form-control-sm"
+                                    required
+                                    style="border-radius: 6px; border-color: #cbd5e1; height: 36px; box-shadow: none;">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="mb-1"
+                                    style="font-weight: 600; color: #64748b; font-size: 11px; uppercase; letter-spacing: 0.05em;">Gender</label>
+                                <select id="edit_gender" name="gender" class="form-select form-select-sm"
+                                    style="border-radius: 6px; border-color: #cbd5e1; height: 36px; box-shadow: none;">
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="mb-1"
+                                    style="font-weight: 600; color: #64748b; font-size: 11px; uppercase; letter-spacing: 0.05em;">Civil
+                                    Status</label>
+                                <select id="edit_civil_status" name="civil_status" class="form-select form-select-sm"
+                                    style="border-radius: 6px; border-color: #cbd5e1; height: 36px; box-shadow: none;">
+                                    <option value="Single">Single</option>
+                                    <option value="Married">Married</option>
+                                    <option value="Widowed">Widowed</option>
+                                    <option value="Separated">Separated</option>
+                                    <option value="Divorced">Divorced</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="mb-1"
+                                    style="font-weight: 600; color: #64748b; font-size: 11px; uppercase; letter-spacing: 0.05em;">Email
+                                    Address</label>
+                                <input type="email" id="edit_email" name="email" class="form-control form-control-sm"
+                                    required
+                                    style="border-radius: 6px; border-color: #cbd5e1; height: 36px; box-shadow: none;">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="mb-1"
+                                    style="font-weight: 600; color: #64748b; font-size: 11px; uppercase; letter-spacing: 0.05em;">Contact
+                                    Number</label>
+                                <input type="text" id="edit_contact_number" name="contact_number"
+                                    class="form-control form-control-sm" required
+                                    style="border-radius: 6px; border-color: #cbd5e1; height: 36px; box-shadow: none;">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="mb-1"
+                                    style="font-weight: 600; color: #64748b; font-size: 11px; uppercase; letter-spacing: 0.05em;">Voter
+                                    Status</label>
+                                <select id="edit_voter_status" name="voter_status" class="form-select form-select-sm"
+                                    style="border-radius: 6px; border-color: #cbd5e1; height: 36px; box-shadow: none;">
+                                    <option value="Registered">Registered</option>
+                                    <option value="Unregistered">Unregistered</option>
+                                    <option value="Suspended">Suspended</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="mb-1"
+                                    style="font-weight: 600; color: #64748b; font-size: 11px; uppercase; letter-spacing: 0.05em;">Residency
+                                    Status</label>
+                                <select id="edit_residency_status" name="residency_status"
+                                    class="form-select form-select-sm"
+                                    style="border-radius: 6px; border-color: #cbd5e1; height: 36px; box-shadow: none;">
+                                    <option value="Active">Active</option>
+                                    <option value="Deceased">Deceased</option>
+                                    <option value="Transferred">Transferred</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer px-4 pb-4 pt-2" style="border: none;">
+                        <button type="button" class="btn btn-sm text-secondary border-0" data-bs-dismiss="modal"
+                            style="font-weight: 600; font-size: 12px; padding: 8px 16px;">Cancel</button>
+                        <button type="submit" class="btn btn-sm btn-primary"
+                            style="font-weight: 600; font-size: 12px; padding: 8px 20px; border-radius: 6px; background-color: #1a56db; border: none;">Save
+                            Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 @endsection

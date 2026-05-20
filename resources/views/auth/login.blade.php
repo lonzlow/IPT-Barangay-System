@@ -8,7 +8,7 @@
             class="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden transition-all duration-300">
 
             <div class="bg-[#1d4ed8] px-8 py-6 text-white flex items-center space-x-4">
-
+                {{-- Logo/Icon --}}
                 <div class="flex-shrink-0">
                     <img src="{{ asset('images/logo/Barangay New Era Logo.jpg') }}" alt="Barangay Logo"
                         class="w-14 h-14 object-cover rounded-full border-2 border-white shadow-md">
