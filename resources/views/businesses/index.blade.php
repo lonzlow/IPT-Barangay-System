@@ -1,4 +1,4 @@
-﻿@extends("layouts.app")
+@extends("layouts.app")
 
 @section("title", "Business Records - Barangay Management System")
 @section("page-title", "Business Clearance & Records")
@@ -9,7 +9,7 @@
         <h5 class="fw-800 mb-1" style="font-size:18px;">Business Records</h5>
         <p class="mb-0" style="font-size:13px;color:#64748b;">Manage barangay business permits and clearances.</p>
     </div>
-    <button class="btn btn-primary d-flex align-items-center gap-2" onclick="openCreateModal()" 
+    <button class="btn btn-primary d-flex align-items-center gap-2" onclick="openCreateModal()"
             style="border-radius:8px;font-size:13.5px;font-weight:600;padding:9px 18px;">
         <i class="bi bi-plus-lg"></i> Add Business
     </button>
@@ -29,8 +29,21 @@
         <tbody>
             @forelse($businesses as $business)
             <tr>
-                <td class="fw-600">{{ $business->name }}</td>
-                <td>{{ $business->owner_name }}</td>
+                <td class="fw-600">{{ $business->business_name }}</td>
+                <td>
+                    @foreach($business->business_owners as $owner)
+                        @if($owner->resident_id)
+                            {{-- Owner is a resident --}}
+                            {{ $owner->resident->first_name }} {{ $owner->resident->middle_name }} {{ $owner->resident->last_name }} {{ $owner->resident->suffix }}
+                        @else
+                            {{-- Owner is not a resident --}}
+                            {{ $owner->organization_name ?? ($owner->first_name . ' ' . $owner->middle_name . ' ' . $owner->last_name . ' ' . $owner->suffix) }}
+                            <br>
+                            <small>{{ $owner->contact_number }} | {{ $owner->email }} | {{ $owner->address }}</small>
+                        @endif
+                        <br>
+                    @endforeach
+                </td>
                 <td>{{ $business->business_type }}</td>
                 <td>
                     <span class="badge {{ $business->status === 'active' ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' }}">
@@ -62,19 +75,26 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label fw-600">Business Name</label>
-                        <input type="text" class="form-control" name="name" required>
+                        <input type="text" class="form-control" name="business_name" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-600">Owner Name</label>
                         <input type="text" class="form-control" name="owner_name" required>
                     </div>
                     <div class="mb-3">
+                        @php
+                            $types = ['Supermarket', 'Laundry Service', 'Pharmacy', 'Restaurant', 'Retail Service', 'Sari-Sari']
+                        @endphp
                         <label class="form-label fw-600">Business Type</label>
-                        <input type="text" class="form-control" name="business_type" placeholder="e.g. Sari-sari Store, Retail">
+                        <select name="business_type" class="form-select">
+                            @foreach ($types as $type)
+                                <option value="{{ $type }}">{{ $type }}</option>
+                            @endforeach
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-600">Address</label>
-                        <textarea class="form-control" name="address" rows="2"></textarea>
+                        <textarea class="form-control" name="business_address" rows="2"></textarea>
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-600">Status</label>
@@ -100,11 +120,12 @@
 <script>
 const businessModal = new bootstrap.Modal(document.getElementById("businessModal"));
 
-function openCreateModal() {
+window.openCreateModal = () => {
     document.getElementById("businessForm").reset();
     document.getElementById("businessId").value = "";
     businessModal.show();
-}
+};
+
 
 async function editBusiness(id) {
     const res = await fetch(`/businesses/${id}/edit`);
@@ -144,7 +165,7 @@ document.getElementById("businessForm").addEventListener("submit", async (e) => 
     const id = document.getElementById("businessId").value;
     const url = id ? `/businesses/${id}` : "/businesses";
     const method = id ? "PUT" : "POST";
-    
+
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
 
@@ -158,7 +179,7 @@ document.getElementById("businessForm").addEventListener("submit", async (e) => 
             },
             body: JSON.stringify(data)
         });
-        
+
         if (res.ok) {
             alert("Business record saved successfully");
             businessModal.hide();

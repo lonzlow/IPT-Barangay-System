@@ -18,12 +18,13 @@ class BusinessFactory extends Factory
     {
         return [
             'business_name' => fake()->unique()->randomElement([
-                'Super67', 'Ohio', 'Umbrella', 'McDollibee', 'Unlad'
+                'Super67', 'Ohio', 'Umbrella', 'McDollibee', 'Unlad', 'TungTungSahur', '6/7'
             ]),
             'business_type' => fake()->unique()->randomElement([
-                'Supermarket', 'Laundry Service', 'Pharmacy', 'Restaurant', 'Retail Service'
+                'Supermarket', 'Laundry Service', 'Pharmacy', 'Restaurant', 'Retail Service', 'Sari-Sari'
             ]),
             'business_address' => fake()->unique()->address(),
+            'date_established' => fake()->date(),
         ];
     }
 }

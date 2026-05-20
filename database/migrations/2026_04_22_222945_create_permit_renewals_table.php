@@ -16,7 +16,8 @@ return new class extends Migration
             $table->foreignUuid('permit_id')->constrained('business_permits')->onDelete('cascade');
             $table->decimal('fee_paid');
             $table->date('renewal_date');
-            $table->foreignUuid('processed_by')->constrained('officials')->onDelete('cascade');
+            $table->date('new_expiry_date')->nullable();
+            $table->foreignUuid('processed_by')->constrained('officials')->restrictOnDelete();
             $table->timestamps();
             $table->softDeletes();
         });

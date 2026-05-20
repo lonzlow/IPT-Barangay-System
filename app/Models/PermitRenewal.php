@@ -15,6 +15,7 @@ class PermitRenewal extends Model
         'permit_id',
         'fee_paid',
         'renewal_date',
+        'new_expiry_date',
         'processed_by',
     ];
 

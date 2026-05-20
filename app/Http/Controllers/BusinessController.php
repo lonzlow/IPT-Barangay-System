@@ -12,7 +12,7 @@ class BusinessController extends Controller
      */
     public function index()
     {
-        $businesses = Business::all();
+        $businesses = Business::with('business_owners.resident')->get();
         return view('businesses.index', compact('businesses'));
     }
 
@@ -33,6 +33,7 @@ class BusinessController extends Controller
             'business_name' => 'required|string|max:255',
             'business_type' => 'required|string|max:255',
             'business_address' => 'required|string|max:500',
+            'date_established' => 'required|date',
             'status' => 'required|in:active,inactive',
         ]);
 

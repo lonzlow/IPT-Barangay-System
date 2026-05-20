@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('organization_name')->nullable();
             $table->string('contact_number')->nullable();
             $table->string('email')->nullable();
-            $table->mediumText('address')->nullable();
+            $table->string('address', 255)->nullable();
             $table->timestamps();
             $table->softDeletes();
         });

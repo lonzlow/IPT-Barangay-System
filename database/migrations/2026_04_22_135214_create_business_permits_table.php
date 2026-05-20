@@ -17,8 +17,8 @@ return new class extends Migration
             $table->string('permit_number')->unique();
             $table->date('expiry_date');
             $table->enum('permit_status', ['Pending', 'Approved', 'Expired', 'Renewed', 'Revoked', 'Suspended']);
-            $table->foreignUuid('issued_by')->constrained('officials')->onDelete('cascade');
-            $table->timestamps();
+            $table->foreignUuid('issued_by')->constrained('officials')->restrictOnDelete();
+            $table->timestamps(); // Can be issued_date
             $table->softDeletes();
         });
     }

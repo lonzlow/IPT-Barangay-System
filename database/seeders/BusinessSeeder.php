@@ -49,6 +49,7 @@ class BusinessSeeder extends Seeder
                 'permit_id' => $permit->id,
                 'fee_paid' => fake()->numberBetween(5000, 1000000),
                 'renewal_date' => now()->format('Y-m-d'),
+                'new_expiry_date' => now()->addYears(3),
                 'processed_by' => $official_id,
             ]);
         }
