@@ -54,6 +54,11 @@ class Resident extends Model
         return $this->hasOne(BusinessOwner::class);
     }
 
+    public function blotter_complainant(): HasMany
+    {
+        return $this->hasMany(Blotter::class, 'complainant_id');
+    }
+
     public function blotter_respondents(): HasMany
     {
         return $this->hasMany(BlotterRespondent::class, 'respondent_id');

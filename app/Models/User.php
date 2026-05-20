@@ -58,6 +58,12 @@ class User extends Authenticatable
         return $this->belongsTo(Official::class, 'official_id');
     }
 
+    public function blotter_filedBy(): HasMany
+    {
+        return $this->hasMany(Blotter::class, 'filed_by');
+    }
+
+
     /* ROLE IS NOW ON OFFICIAL TABLE. KINDLY MOVE THIS
     public function role(): BelongsTo
     {
