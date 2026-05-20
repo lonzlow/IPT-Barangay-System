@@ -23,7 +23,9 @@ class BusinessController extends Controller
      */
     public function create()
     {
-        return view('businesses.create');
+        $owners = BusinessOwner::with('resident')->get();
+
+        return view('businesses.create', compact('owners'));
     }
 
     /**
@@ -33,12 +35,39 @@ class BusinessController extends Controller
     {
         $validated = $request->validate([
             'business_name' => 'required|string|max:255',
-            'owner_name' => 'required|string|max:255',
+
+            'business_owner_ids' => 'required|array|min:1',
+            'business_owner_ids.*' => 'required|exists:business_owners,id',
+
+            'ownership_roles' => 'nullable|array',
+            'ownership_roles.*' => 'nullable|in:Owner,Co-owner,Representative',
+
+            'ownership_percentages' => 'nullable|array',
+            'ownership_percentages.*' => 'nullable|numeric|min:0|max:100',
+
             'business_type' => 'required|string|max:255',
             'business_address' => 'required|string|max:500',
             'date_established' => 'required|date',
             'status' => 'required|in:Active,Inactive,Closed',
         ]);
+
+        $totalPercentage = collect($request->ownership_percentages)
+            ->filter(fn($value) => $value !== null && $value !== '')
+            ->sum();
+
+        if (
+            count($request->business_owner_ids) > 1 &&
+            $totalPercentage != 100
+        ) {
+            return response()->json([
+                'message' => 'Ownership percentage must total exactly 100%.',
+                'errors' => [
+                    'ownership_percentages' => [
+                        'Total ownership percentage must equal 100%.'
+                    ]
+                ]
+            ], 422);
+        }
 
         $business = Business::create([
             'business_name' => $validated['business_name'],
@@ -48,15 +77,29 @@ class BusinessController extends Controller
             'status' => $validated['status'],
         ]);
 
-        $this->upsertOwnerFromName($business, $validated['owner_name']);
+        $attachData = [];
+
+        foreach ($request->business_owner_ids as $index => $ownerId) {
+
+            $attachData[$ownerId] = [
+                'ownership_role' => $request->ownership_roles[$index] ?? 'Owner',
+                'ownership_percentage' => $request->ownership_percentages[$index] ?? null,
+            ];
+        }
+
+        $business->business_owners()->attach($attachData);
 
         if ($request->expectsJson()) {
+
             return response()->json([
                 'message' => 'Business created successfully.',
                 'business' => $business->load('business_owners.resident'),
             ], 201);
         }
-        return redirect()->route('businesses.index')->with('success', 'Business created successfully');
+
+        return redirect()
+            ->route('businesses.index')
+            ->with('success', 'Business created successfully');
     }
 
     /**
@@ -77,21 +120,62 @@ class BusinessController extends Controller
     public function edit(string $id)
     {
         $business = Business::with('business_owners.resident')->findOrFail($id);
+
+        $owners = BusinessOwner::with('resident')->get();
+
         if (request()->expectsJson()) {
+
             return response()->json([
                 'success' => true,
                 'data' => [
                     'id' => $business->id,
                     'business_name' => $business->business_name,
-                    'owner_name' => $this->formatOwnerName($business->business_owners->first()),
                     'business_type' => $business->business_type,
                     'business_address' => $business->business_address,
                     'date_established' => Carbon::parse($business->date_established)->format('Y-m-d'),
                     'status' => $business->status,
+
+                    'owners' => $business->business_owners->map(function ($owner) {
+
+                        return [
+                            'business_owner_id' => $owner->id,
+                            'ownership_role' => $owner->pivot->ownership_role,
+                            'ownership_percentage' => $owner->pivot->ownership_percentage,
+                        ];
+                    }),
                 ],
+
+                'owners' => $owners->map(function ($owner) {
+
+                    if ($owner->resident_id && $owner->resident) {
+
+                        $name = trim(
+                            $owner->resident->first_name . ' ' .
+                            $owner->resident->middle_name . ' ' .
+                            $owner->resident->last_name . ' ' .
+                            $owner->resident->suffix
+                        );
+
+                    } else {
+
+                        $name = $owner->organization_name
+                            ?: trim(
+                                $owner->first_name . ' ' .
+                                $owner->middle_name . ' ' .
+                                $owner->last_name . ' ' .
+                                $owner->suffix
+                            );
+                    }
+
+                    return [
+                        'id' => $owner->id,
+                        'name' => $name,
+                    ];
+                }),
             ]);
         }
-        return view('businesses.edit', compact('business'));
+
+        return view('businesses.edit', compact('business', 'owners'));
     }
 
     /**
@@ -103,12 +187,39 @@ class BusinessController extends Controller
 
         $validated = $request->validate([
             'business_name' => 'required|string|max:255',
-            'owner_name' => 'required|string|max:255',
+
+            'business_owner_ids' => 'required|array|min:1',
+            'business_owner_ids.*' => 'required|exists:business_owners,id',
+
+            'ownership_roles' => 'required|array',
+            'ownership_roles.*' => 'required|in:Owner,Co-owner,Representative',
+
+            'ownership_percentages' => 'nullable|array',
+            'ownership_percentages.*' => 'nullable|numeric|min:0|max:100',
+
             'business_type' => 'required|string|max:255',
             'business_address' => 'required|string|max:500',
             'date_established' => 'required|date',
             'status' => 'required|in:Active,Inactive,Closed',
         ]);
+
+        $totalPercentage = collect($request->ownership_percentages)
+            ->filter(fn($value) => $value !== null && $value !== '')
+            ->sum();
+
+        if (
+            count($request->business_owner_ids) > 1 &&
+            $totalPercentage != 100
+        ) {
+            return response()->json([
+                'message' => 'Ownership percentage must total exactly 100%.',
+                'errors' => [
+                    'ownership_percentages' => [
+                        'Total ownership percentage must equal 100%.'
+                    ]
+                ]
+            ], 422);
+        }
 
         $business->update([
             'business_name' => $validated['business_name'],
@@ -118,15 +229,29 @@ class BusinessController extends Controller
             'status' => $validated['status'],
         ]);
 
-        $this->upsertOwnerFromName($business, $validated['owner_name']);
+        $syncData = [];
+
+        foreach ($request->business_owner_ids as $index => $ownerId) {
+
+            $syncData[$ownerId] = [
+                'ownership_role' => $request->ownership_roles[$index] ?? 'Owner',
+                'ownership_percentage' => $request->ownership_percentages[$index] ?? null,
+            ];
+        }
+
+        $business->business_owners()->sync($syncData);
 
         if ($request->expectsJson()) {
+
             return response()->json([
                 'message' => 'Business updated successfully.',
                 'business' => $business->load('business_owners.resident'),
             ]);
         }
-        return redirect()->route('businesses.index')->with('success', 'Business updated successfully');
+
+        return redirect()
+            ->route('businesses.index')
+            ->with('success', 'Business updated successfully');
     }
 
     /**
