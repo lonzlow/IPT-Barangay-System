@@ -39,6 +39,11 @@ class Official extends Model
         return $this->belongsTo(Resident::class);
     }
 
+    public function role(): BelongsTo
+    {
+        return $this->belongsTo(Role::class);
+    }
+
     public function user(): HasOne
     {
         return $this->hasOne(HasOne::class, 'official_id');

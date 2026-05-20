@@ -160,13 +160,11 @@
 
     <div class="sidebar-nav">
 
-        @can('residents.view')
-            <div class="nav-label">Main</div>
-            <a href="{{ route('dashboard') }}"
-               class="nav-link {{ Request::routeIs('dashboard') ? 'active' : '' }}">
-                <i class="bi bi-speedometer2"></i> Dashboard
-            </a>
-        @endcan
+        <div class="nav-label">Main</div>
+        <a href="{{ route('dashboard') }}"
+           class="nav-link {{ Request::routeIs('dashboard') ? 'active' : '' }}">
+            <i class="bi bi-speedometer2"></i> Dashboard
+        </a>
 
         @canany([
             'residents.view',
