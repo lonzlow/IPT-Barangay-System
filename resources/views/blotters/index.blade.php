@@ -1,528 +1,529 @@
-﻿@extends("layouts.app")
+@extends("layouts.app")
 
-@section("title", "Blotter Records - Barangay Management System")
+@section("title", "Blotter Management - Barangay Management System")
 @section("page-title", "Blotter Management")
 
-@section("content")
-
-<div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
-    <div>
-        <h5 class="fw-800 mb-1" style="font-size:18px;">
-            Blotter Records
-        </h5>
-
-        <p class="mb-0" style="font-size:13px;color:#64748b;">
-            Manage barangay blotter complaints, respondents, and witnesses.
-        </p>
-    </div>
-
-    <button
-        class="btn btn-primary d-flex align-items-center gap-2"
-        onclick="openCreateModal()"
-        style="border-radius:8px;font-size:13.5px;font-weight:600;padding:9px 18px;"
-    >
-        <i class="bi bi-plus-lg"></i>
-        Add Blotter
-    </button>
-</div>
-
-<div class="table-card">
-
-    <table class="table table-hover">
-
-        <thead>
-            <tr>
-                <th>Case No.</th>
-                <th>Complainant</th>
-                <th>Respondents</th>
-                <th>Witnesses</th>
-                <th>Status</th>
-                <th>Date</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-
-        <tbody>
-
-            @forelse($blotters as $blotter)
-
-                <tr>
-
-                    <td class="fw-600">
-                        {{ $blotter->case_number }}
-                    </td>
-
-                    <td>
-                        @if($blotter->complainant_resident)
-                            {{ $blotter->complainant_resident?->first_name . ' ' . $blotter->complainant_resident?->last_name }}
-                        @else
-                            {{ $blotter->complainant_name }}
-                        @endif
-                    </td>
-
-                    <td>
-
-                        @forelse($blotter->respondents as $respondent)
-
-                            @if($respondent->respondent)
-
-                                {{ $respondent->respondent->first_name }}
-                                {{ $respondent->respondent->middle_name }}
-                                {{ $respondent->respondent->last_name }}
-                                {{ $respondent->respondent->suffix }}
-
-                            @else
-
-                                {{ $respondent->respondent_name }}
-
-                            @endif
-
-                            @if(!$loop->last)
-                                <br>
-                            @endif
-
-                        @empty
-
-                            <span class="text-muted">
-                                —
-                            </span>
-
-                        @endforelse
-
-                    </td>
-
-                    <td>
-
-                        @forelse($blotter->witnesses as $witness)
-
-                            @if($witness->resident_witness)
-
-                                {{ $witness->resident_witness->first_name }}
-                                {{ $witness->resident_witness->middle_name }}
-                                {{ $witness->resident_witness->last_name }}
-                                {{ $witness->resident_witness->suffix }}
-
-                            @endif
-
-                            @if(!$loop->last)
-                                <br>
-                            @endif
-
-                        @empty
-
-                            <span class="text-muted">
-                                —
-                            </span>
-
-                        @endforelse
-
-                    </td>
-
-                    <td>
-
-                        @php
-                            $statusClass = match($blotter->status) {
-                                'pending' => 'bg-danger-subtle text-danger',
-                                'under investigation' => 'bg-warning-subtle text-warning',
-                                'resolved' => 'bg-success-subtle text-success',
-                                'referred' => 'bg-info-subtle text-info',
-                                default => 'bg-secondary-subtle text-secondary'
-                            };
-                        @endphp
-
-                        <span class="badge {{ $statusClass }}">
-                            {{ ucfirst($blotter->status) }}
-                        </span>
-
-                    </td>
-
-                    <td>
-                        {{ optional($blotter->incident_date)->format('M d, Y') }}
-                    </td>
-
-                    <td>
-
-                        <a
-                            href="{{ route('blotters.show', ['blotter' => $blotter->id]) }}"
-                            class="btn btn-sm btn-light"
-                        >
-                            <i class="bi bi-eye"></i>
-                        </a>
-
-                        <button
-                            class="btn btn-sm btn-light"
-                            onclick="editBlotter('{{ $blotter->id }}')"
-                        >
-                            <i class="bi bi-pencil"></i>
-                        </button>
-
-                        <button
-                            class="btn btn-sm btn-light"
-                            onclick="deleteBlotter('{{ $blotter->id }}')"
-                        >
-                            <i class="bi bi-trash"></i>
-                        </button>
-
-                    </td>
-
-                </tr>
-
-            @empty
-
-                <tr>
-
-                    <td colspan="7" class="text-center py-4">
-
-                        No blotter records found.
-
-                        <a href="javascript:openCreateModal()">
-                            Add one.
-                        </a>
-
-                    </td>
-
-                </tr>
-
-            @endforelse
-
-        </tbody>
-
-    </table>
-
-</div>
-
-{{-- MODAL --}}
-<div class="modal fade" id="blotterModal" tabindex="-1">
-
-    <div class="modal-dialog modal-lg">
-
-        <div class="modal-content">
-
-            <div class="modal-header">
-
-                <h5 class="modal-title fw-800">
-                    Blotter Details
-                </h5>
-
-                <button
-                    type="button"
-                    class="btn-close"
-                    data-bs-dismiss="modal"
-                ></button>
-
-            </div>
-
-            <form id="blotterForm">
-
-                @csrf
-
-                <input
-                    type="hidden"
-                    id="blotterId"
-                    name="id"
-                >
-
-                <div class="modal-body">
-
-                    <div class="mb-3">
-
-                        <label class="form-label fw-600">
-                            Case Number
-                        </label>
-
-                        <input
-                            type="text"
-                            class="form-control"
-                            name="case_number"
-                            required
-                        >
-
-                    </div>
-
-                    <div class="mb-3">
-
-                        <label class="form-label fw-600">
-                            Complainant Name
-                        </label>
-
-                        <input
-                            type="text"
-                            class="form-control"
-                            name="complainant_name"
-                            required
-                        >
-
-                    </div>
-
-                    <div class="mb-3">
-
-                        <label class="form-label fw-600">
-                            Location
-                        </label>
-
-                        <input
-                            type="text"
-                            class="form-control"
-                            name="location"
-                        >
-
-                    </div>
-
-                    <div class="mb-3">
-
-                        <label class="form-label fw-600">
-                            Incident Description
-                        </label>
-
-                        <textarea
-                            class="form-control"
-                            name="incident_description"
-                            rows="3"
-                            required
-                        ></textarea>
-
-                    </div>
-
-                    <div class="row">
-
-                        <div class="col-md-6 mb-3">
-
-                            <label class="form-label fw-600">
-                                Incident Date
-                            </label>
-
-                            <input
-                                type="datetime-local"
-                                class="form-control"
-                                name="incident_date"
-                                required
-                            >
-
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-
-                            <label class="form-label fw-600">
-                                Status
-                            </label>
-
-                            <select
-                                class="form-select"
-                                name="status"
-                            >
-                                <option value="pending">Pending</option>
-                                <option value="under investigation">Under Investigation</option>
-                                <option value="resolved">Resolved</option>
-                                <option value="referred">Referred</option>
-                            </select>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-                <div class="modal-footer">
-
-                    <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        data-bs-dismiss="modal"
-                    >
-                        Cancel
-                    </button>
-
-                    <button
-                        type="submit"
-                        class="btn btn-primary"
-                    >
-                        Save Blotter
-                    </button>
-
-                </div>
-
-            </form>
-
-        </div>
-
-    </div>
-
-</div>
-
+@section("styles")
+<style>
+    .blotter-dashboard .stat-card { min-height: 104px; }
+    .blotter-dashboard .stat-value { font-size: 30px; }
+    .blotter-chart { height: 230px; }
+    .upload-zone {
+        border: 2px dashed #cbd5e1;
+        border-radius: 12px;
+        min-height: 164px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: #94a3b8;
+        cursor: pointer;
+        transition: all .18s ease;
+    }
+    .upload-zone:hover,
+    .upload-zone.dragover {
+        border-color: #1a56db;
+        background: #eff6ff;
+        color: #1a56db;
+    }
+    .timeline {
+        position: relative;
+        padding-left: 28px;
+    }
+    .timeline:before {
+        content: "";
+        position: absolute;
+        left: 8px;
+        top: 9px;
+        bottom: 11px;
+        width: 2px;
+        background: #dbe4f0;
+    }
+    .timeline-item {
+        position: relative;
+        padding-bottom: 24px;
+    }
+    .timeline-item:last-child { padding-bottom: 0; }
+    .timeline-dot {
+        position: absolute;
+        left: -27px;
+        top: 4px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #fff;
+        border: 3px solid #1a56db;
+    }
+    .timeline-dot.success { border-color: #16a34a; }
+    .timeline-dot.warning { border-color: #f59e0b; }
+    .timeline-dot.secondary { border-color: #94a3b8; }
+    .dataTables_wrapper .dt-search,
+    .dataTables_wrapper .dt-length {
+        padding: 12px 18px;
+    }
+    .dataTables_wrapper .dt-info,
+    .dataTables_wrapper .dt-paging {
+        padding: 14px 18px;
+    }
+</style>
 @endsection
 
-@push("scripts")
+@section("content")
+<div class="blotter-dashboard">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+        <div>
+            <h5 class="fw-800 mb-1" style="font-size:20px;">Blotter Management</h5>
+            <p class="mb-0" style="font-size:13px;color:#64748b;">Log, track, and resolve barangay complaints and incidents.</p>
+        </div>
 
+        <button class="btn btn-primary d-flex align-items-center gap-2" onclick="openCreateModal()"
+                style="border-radius:8px;font-size:13.5px;font-weight:700;padding:11px 20px;">
+            <i class="bi bi-plus-lg"></i>
+            Add New Blotter Record
+        </button>
+    </div>
+
+    <div id="blotterAlert" class="mb-3"></div>
+
+    <div class="section-heading">Overview</div>
+    <div class="row g-3 mb-4">
+        <div class="col-md-6 col-xl-3">
+            <div class="stat-card d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#eff6ff;color:#2563eb;"><i class="bi bi-journal-text"></i></div>
+                <div>
+                    <div class="stat-value" data-summary="total">{{ $summary['total'] }}</div>
+                    <div class="stat-label">Total Complaints Logged</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="stat-card d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#fef2f2;color:#dc2626;"><i class="bi bi-exclamation-circle-fill"></i></div>
+                <div>
+                    <div class="stat-value" data-summary="open">{{ $summary['open'] }}</div>
+                    <div class="stat-label">Open Cases</div>
+                    <span class="stat-badge" style="background:#fee2e2;color:#dc2626;">Needs action</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="stat-card d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#fffbeb;color:#d97706;"><i class="bi bi-hourglass-split"></i></div>
+                <div>
+                    <div class="stat-value" data-summary="ongoing">{{ $summary['ongoing'] }}</div>
+                    <div class="stat-label">Ongoing / Mediation</div>
+                    <span class="stat-badge" style="background:#fef3c7;color:#d97706;">In progress</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="stat-card d-flex align-items-center gap-3">
+                <div class="stat-icon" style="background:#ecfdf5;color:#16a34a;"><i class="bi bi-check-circle-fill"></i></div>
+                <div>
+                    <div class="stat-value" data-summary="resolved">{{ $summary['resolved'] }}</div>
+                    <div class="stat-label">Resolved Cases</div>
+                    <span class="stat-badge" style="background:#dcfce7;color:#16a34a;" data-summary="resolved_rate">{{ $summary['resolved_rate'] }}%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-4">
+            <div class="chart-card h-100">
+                <div class="card-heading">Case Status Distribution</div>
+                <div class="card-sub mb-3">All logged complaints</div>
+                <div class="blotter-chart"><canvas id="statusChart"></canvas></div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="chart-card h-100">
+                <div class="card-heading">Complaint Type Breakdown</div>
+                <div class="card-sub mb-3">This year</div>
+                <div class="blotter-chart"><canvas id="typeChart"></canvas></div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="chart-card h-100">
+                <div class="card-heading">Attach Supporting Documents</div>
+                <div class="card-sub mb-4">Upload files for an existing blotter record</div>
+                <form id="evidenceForm">
+                    <label class="form-label fw-700">Blotter Reference No.</label>
+                    <input type="text" class="form-control mb-3" name="reference" placeholder="e.g. BLT-2025-0048" required>
+                    <input type="file" class="d-none" id="evidenceFile" name="evidence" accept=".pdf,.jpg,.jpeg,.png" required>
+                    <div class="upload-zone mb-3" id="uploadZone">
+                        <div>
+                            <i class="bi bi-cloud-arrow-up-fill d-block mb-3" style="font-size:24px;"></i>
+                            <div class="fw-700" id="uploadLabel">Drop files here or click to browse</div>
+                            <div style="font-size:12px;">PDF, JPG, PNG - max 10MB each</div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-outline-primary w-100 fw-700">
+                        <i class="bi bi-paperclip me-1"></i>
+                        Attach to Record
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-xl-7">
+            <div class="section-heading">Recent Incidents</div>
+            <div class="table-card">
+                <div class="table-header">
+                    <div class="heading">Incident Log</div>
+                    <a href="{{ route('blotters.export') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-download me-1"></i>Export
+                    </a>
+                </div>
+                <table class="table table-hover" id="blottersTable">
+                    <thead>
+                        <tr>
+                            <th>Ref. No.</th>
+                            <th>Complainant</th>
+                            <th>Incident Type</th>
+                            <th>Date Filed</th>
+                            <th>Severity</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="col-xl-5">
+            <div class="section-heading">Case Status Tracker</div>
+            <div class="chart-card">
+                <div class="timeline">
+                    @forelse($recentTracker as $item)
+                        <div class="timeline-item">
+                            <span class="timeline-dot {{ $item['tone'] }}"></span>
+                            <div class="small fw-600 mb-1" style="color:#94a3b8;">{{ $item['date'] }}</div>
+                            <div class="fw-800" style="font-size:14px;">{{ $item['case_number'] }} {{ $item['status'] }}</div>
+                            <div style="font-size:13px;color:#64748b;">{{ $item['description'] }}</div>
+                        </div>
+                    @empty
+                        <div class="text-muted small">No tracked cases yet.</div>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="blotterModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-800">Blotter Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="blotterForm">
+                @csrf
+                <input type="hidden" id="blotterId" name="id">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-600">Case Number</label>
+                            <input type="text" class="form-control" name="case_number" required>
+                            <div class="invalid-feedback"></div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-600">Status</label>
+                            <select class="form-select" name="status" required>
+                                <option value="pending">Open</option>
+                                <option value="under investigation">Ongoing / Mediation</option>
+                                <option value="resolved">Resolved</option>
+                                <option value="dismissed">Dismissed</option>
+                                <option value="referred">Referred</option>
+                            </select>
+                            <div class="invalid-feedback"></div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-600">Complainant Name</label>
+                            <input type="text" class="form-control" name="complainant_name" required>
+                            <div class="invalid-feedback"></div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-600">Respondent / Involved Party</label>
+                            <input type="text" class="form-control" name="respondent_name">
+                            <div class="invalid-feedback"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-600">Location</label>
+                        <input type="text" class="form-control" name="location">
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-600">Incident Description</label>
+                        <textarea class="form-control" name="incident_description" rows="3" required></textarea>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-600">Incident Date</label>
+                        <input type="datetime-local" class="form-control" name="incident_date" required>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Blotter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+@endsection
+
+@section("scripts")
 <script>
+const blotterModal = new bootstrap.Modal(document.getElementById("blotterModal"));
+const blotterForm = document.getElementById("blotterForm");
+const evidenceForm = document.getElementById("evidenceForm");
+const uploadZone = document.getElementById("uploadZone");
+const evidenceFile = document.getElementById("evidenceFile");
+const uploadLabel = document.getElementById("uploadLabel");
+const alertContainer = document.getElementById("blotterAlert");
+const axiosInstance = window.axios;
+let blottersTable = null;
+let statusChart = null;
+let typeChart = null;
 
-const blotterModal = new bootstrap.Modal(
-    document.getElementById("blotterModal")
-);
+const statusData = @json($statusDistribution);
+const typeData = @json($typeBreakdown);
+
+if (axiosInstance) {
+    axiosInstance.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest";
+    axiosInstance.defaults.headers.common["Accept"] = "application/json";
+    const csrfToken = document.querySelector("meta[name=\"csrf-token\"]")?.getAttribute("content");
+    if (csrfToken) {
+        axiosInstance.defaults.headers.common["X-CSRF-TOKEN"] = csrfToken;
+    }
+}
+
+function showAlert(message, type = "success") {
+    alertContainer.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+}
+
+function clearValidation() {
+    blotterForm.querySelectorAll(".is-invalid").forEach((el) => el.classList.remove("is-invalid"));
+    blotterForm.querySelectorAll(".invalid-feedback").forEach((el) => el.textContent = "");
+}
+
+function showFormErrors(errors) {
+    Object.keys(errors).forEach((field) => {
+        const input = blotterForm.querySelector(`[name="${field}"]`);
+        if (!input) return;
+        input.classList.add("is-invalid");
+        const feedback = input.parentElement.querySelector(".invalid-feedback");
+        if (feedback) feedback.textContent = errors[field][0];
+    });
+}
+
+function updateSummary(summary) {
+    if (!summary) return;
+    Object.entries(summary).forEach(([key, value]) => {
+        document.querySelectorAll(`[data-summary="${key}"]`).forEach((el) => {
+            el.textContent = key === "resolved_rate" ? `${value}%` : value;
+        });
+    });
+}
 
 window.openCreateModal = () => {
-
-    document.getElementById("blotterForm").reset();
-
+    blotterForm.reset();
+    clearValidation();
     document.getElementById("blotterId").value = "";
-
     blotterModal.show();
 };
 
 async function editBlotter(id) {
-
+    clearValidation();
     try {
-
-        const res = await fetch(`/blotters/${id}/edit`, {
-            headers: {
-                "Accept": "application/json"
-            }
-        });
-
-        const data = await res.json();
-
-        if (data.success) {
-
-            const b = data.data;
-
-            document.getElementById("blotterId").value
-                = b.id;
-
-            document.querySelector("[name='case_number']").value
-                = b.case_number || "";
-
-            document.querySelector("[name='complainant_name']").value
-                = b.complainant_name || "";
-
-            document.querySelector("[name='location']").value
-                = b.location || "";
-
-            document.querySelector("[name='incident_description']").value
-                = b.incident_description || "";
-
-            if (b.incident_date) {
-
-                const date = new Date(b.incident_date);
-
-                document.querySelector("[name='incident_date']").value
-                    = date.toISOString().slice(0, 16);
-            }
-
-            document.querySelector("[name='status']").value
-                = b.status || "pending";
-
-            blotterModal.show();
-        }
-
-    } catch (err) {
-
-        console.error(err);
-
-        alert("Failed to load blotter.");
+        const response = await axiosInstance.get(`/blotters/${id}/edit`);
+        const data = response.data?.data || {};
+        document.getElementById("blotterId").value = data.id || id;
+        blotterForm.querySelector("[name=\"case_number\"]").value = data.case_number || "";
+        blotterForm.querySelector("[name=\"complainant_name\"]").value = data.complainant_name || "";
+        blotterForm.querySelector("[name=\"respondent_name\"]").value = data.respondent_name || "";
+        blotterForm.querySelector("[name=\"location\"]").value = data.location || "";
+        blotterForm.querySelector("[name=\"incident_description\"]").value = data.incident_description || "";
+        blotterForm.querySelector("[name=\"incident_date\"]").value = data.incident_date || "";
+        blotterForm.querySelector("[name=\"status\"]").value = data.status || "pending";
+        blotterModal.show();
+    } catch (error) {
+        showAlert("Failed to load blotter details.", "danger");
     }
 }
 
 async function deleteBlotter(id) {
-
-    if (!confirm(
-        "Are you sure you want to delete this blotter record?"
-    )) return;
-
+    if (!confirm("Are you sure you want to delete this blotter record?")) return;
     try {
-
-        const res = await fetch(`/blotters/${id}`, {
-
-            method: "DELETE",
-
-            headers: {
-                "X-CSRF-TOKEN": "{{ csrf_token() }}",
-                "Accept": "application/json"
-            }
-        });
-
-        if (res.ok) {
-
-            alert("Blotter deleted successfully");
-
-            location.reload();
-
-        } else {
-
-            alert("Failed to delete blotter.");
-        }
-
-    } catch (err) {
-
-        console.error(err);
-
-        alert("An error occurred.");
+        const response = await axiosInstance.delete(`/blotters/${id}`);
+        showAlert(response.data?.message || "Blotter record deleted successfully.");
+        updateSummary(response.data?.dashboard?.summary);
+        blottersTable?.ajax.reload(null, false);
+    } catch (error) {
+        showAlert(error.response?.data?.message || "Failed to delete blotter record.", "danger");
     }
 }
 
-document.getElementById("blotterForm")
-.addEventListener("submit", async (e) => {
-
-    e.preventDefault();
+blotterForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    clearValidation();
 
     const id = document.getElementById("blotterId").value;
-
-    const url = id
-        ? `/blotters/${id}`
-        : "/blotters";
-
-    const method = id
-        ? "PUT"
-        : "POST";
-
-    const formData = new FormData(e.target);
-
-    const data = Object.fromEntries(formData);
+    const method = id ? "put" : "post";
+    const url = id ? `/blotters/${id}` : "/blotters";
+    const data = Object.fromEntries(new FormData(blotterForm));
 
     try {
-
-        const res = await fetch(url, {
-
-            method: method,
-
-            headers: {
-                "Content-Type": "application/json",
-                "X-CSRF-TOKEN": "{{ csrf_token() }}",
-                "Accept": "application/json"
-            },
-
-            body: JSON.stringify(data)
-        });
-
-        if (res.ok) {
-
-            alert("Blotter saved successfully");
-
-            blotterModal.hide();
-
-            location.reload();
-
-        } else {
-
-            const errorData = await res.json();
-
-            console.error(errorData);
-
-            alert(
-                "Error: "
-                + JSON.stringify(
-                    errorData.errors
-                    || errorData.message
-                )
-            );
+        const response = await axiosInstance({ method, url, data });
+        showAlert(response.data?.message || "Blotter record saved successfully.");
+        updateSummary(response.data?.dashboard?.summary);
+        blotterModal.hide();
+        blotterForm.reset();
+        blottersTable?.ajax.reload(null, false);
+    } catch (error) {
+        if (error.response?.status === 422) {
+            showFormErrors(error.response.data.errors || {});
+            return;
         }
-
-    } catch (err) {
-
-        console.error(err);
-
-        alert("An error occurred.");
+        showAlert(error.response?.data?.message || "An error occurred while saving.", "danger");
     }
 });
 
-</script>
+uploadZone.addEventListener("click", () => evidenceFile.click());
+uploadZone.addEventListener("dragover", (event) => {
+    event.preventDefault();
+    uploadZone.classList.add("dragover");
+});
+uploadZone.addEventListener("dragleave", () => uploadZone.classList.remove("dragover"));
+uploadZone.addEventListener("drop", (event) => {
+    event.preventDefault();
+    uploadZone.classList.remove("dragover");
+    if (event.dataTransfer.files.length) {
+        evidenceFile.files = event.dataTransfer.files;
+        uploadLabel.textContent = event.dataTransfer.files[0].name;
+    }
+});
+evidenceFile.addEventListener("change", () => {
+    uploadLabel.textContent = evidenceFile.files[0]?.name || "Drop files here or click to browse";
+});
 
-@endpush
+evidenceForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const reference = evidenceForm.querySelector("[name=\"reference\"]").value.trim();
+    const file = evidenceFile.files[0];
+    if (!reference || !file) {
+        showAlert("Enter a blotter reference number and choose a file.", "danger");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("evidence", file);
+    formData.append("caption", file.name);
+
+    try {
+        const response = await axiosInstance.post(`/blotters/${encodeURIComponent(reference)}/evidence`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+        showAlert(response.data?.message || "Supporting document attached successfully.");
+        evidenceForm.reset();
+        uploadLabel.textContent = "Drop files here or click to browse";
+    } catch (error) {
+        showAlert(error.response?.data?.message || "Failed to attach supporting document.", "danger");
+    }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    if (window.Chart) {
+        statusChart = new Chart(document.getElementById("statusChart"), {
+            type: "doughnut",
+            data: {
+                labels: Object.keys(statusData),
+                datasets: [{
+                    data: Object.values(statusData),
+                    backgroundColor: ["#dc2626", "#f59e0b", "#16a34a", "#94a3b8"],
+                    borderWidth: 0,
+                }],
+            },
+            options: {
+                maintainAspectRatio: false,
+                cutout: "62%",
+                plugins: { legend: { position: "bottom", labels: { boxWidth: 12, usePointStyle: false } } },
+            },
+        });
+
+        typeChart = new Chart(document.getElementById("typeChart"), {
+            type: "bar",
+            data: {
+                labels: Object.keys(typeData),
+                datasets: [{
+                    data: Object.values(typeData),
+                    backgroundColor: "#2563eb",
+                    borderRadius: 6,
+                }],
+            },
+            options: {
+                indexAxis: "y",
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, grid: { color: "#edf2f7" } },
+                    y: { grid: { display: false } },
+                },
+            },
+        });
+    }
+
+    if (window.$ && $.fn.DataTable) {
+        blottersTable = $("#blottersTable").DataTable({
+            processing: true,
+            serverSide: true,
+            ajax: {
+                url: "{{ route('blotters.data') }}",
+                dataSrc: "data",
+                headers: { "Accept": "application/json" },
+            },
+            columns: [
+                { data: "case_number", name: "case_number" },
+                { data: "complainant_display", name: "complainant_display", orderable: false },
+                { data: "incident_type", name: "incident_description", orderable: false },
+                { data: "date_filed", name: "incident_date" },
+                { data: "severity_badge", name: "severity", orderable: false, searchable: false },
+                { data: "status_badge", name: "status", orderable: false },
+                { data: "action", name: "action", orderable: false, searchable: false },
+            ],
+            order: [[3, "desc"]],
+            pageLength: 7,
+            lengthMenu: [[7, 10, 25, 50], [7, 10, 25, 50]],
+            language: {
+                search: "",
+                searchPlaceholder: "Search...",
+                info: "Showing _START_-_END_ of _TOTAL_ records",
+                infoEmpty: "No blotter records available",
+                lengthMenu: "Show _MENU_",
+            },
+        });
+    }
+
+    document.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-blotter-action]");
+        if (!button) return;
+        if (button.dataset.blotterAction === "edit") editBlotter(button.dataset.blotterId);
+        if (button.dataset.blotterAction === "delete") deleteBlotter(button.dataset.blotterId);
+    });
+});
+</script>
+@endsection

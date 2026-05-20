@@ -25,6 +25,9 @@ Route::get('/dashboard', fn() => redirect()->route('residents.index'))
 
 Route::middleware('auth')->group(function () {
     // BLOTTERS ROUTE
+    Route::get('/blotters/data', [BlotterController::class, 'data'])->name('blotters.data');
+    Route::get('/blotters/export', [BlotterController::class, 'export'])->name('blotters.export');
+    Route::post('/blotters/{blotter}/evidence', [BlotterController::class, 'uploadEvidence'])->name('blotters.evidence');
     Route::resource('blotters', BlotterController::class);
 
     // OFFICIALS ROUTE
