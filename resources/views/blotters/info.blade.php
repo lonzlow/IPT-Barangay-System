@@ -171,6 +171,18 @@
 
                                             </video>
 
+                                        @else
+
+                                            <a href="{{ asset($evidence->file_path) }}"
+                                               target="_blank"
+                                               class="d-flex align-items-center justify-content-center text-decoration-none bg-light"
+                                               style="height:220px;">
+                                                <div class="text-center">
+                                                    <i class="bi bi-file-earmark-text d-block mb-2" style="font-size:42px;"></i>
+                                                    <span class="fw-semibold">Open File</span>
+                                                </div>
+                                            </a>
+
                                         @endif
 
                                         <div class="p-3">
@@ -331,7 +343,7 @@
                                     $resident->last_name . ' ' .
                                     $resident->suffix
                                 )
-                                : 'Unknown Witness';
+                                : ($witness->witness_name ?? 'Unknown Witness');
                         @endphp
 
                         <div class="border rounded p-3 mb-3">

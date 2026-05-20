@@ -5,7 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\Blotter;
 use App\Models\BlotterEvidence;
 use App\Models\BlotterRespondent;
+use App\Models\BlotterWitness;
+use App\Models\Resident;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -113,22 +116,58 @@ class BlotterController extends Controller
         return redirect()->route('blotters.index');
     }
 
+    public function residentsSearch(Request $request)
+    {
+        $search = trim((string) $request->query('q', ''));
+
+        $residents = Resident::query()
+            ->select(['id', 'resident_number', 'first_name', 'middle_name', 'last_name', 'suffix'])
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('resident_number', 'like', "%{$search}%")
+                        ->orWhere('first_name', 'like', "%{$search}%")
+                        ->orWhere('middle_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('last_name')
+            ->limit(20)
+            ->get()
+            ->map(fn (Resident $resident) => [
+                'id' => $resident->id,
+                'text' => trim($this->residentName($resident) . ' - ' . $resident->resident_number),
+                'name' => $this->residentName($resident),
+            ]);
+
+        return response()->json(['results' => $residents]);
+    }
+
     public function store(Request $request)
     {
         $validated = $this->validatedBlotter($request);
-        $respondentName = $validated['respondent_name'] ?? null;
-        unset($validated['respondent_name']);
+        $respondents = $this->normalizePeople($validated['respondents'] ?? [], 'respondent');
+        $witnesses = $this->normalizePeople($validated['witnesses'] ?? [], 'witness');
+        $evidences = $validated['evidences'] ?? [];
+        unset($validated['case_number'], $validated['complainant_mode'], $validated['respondent_name'], $validated['respondents'], $validated['witnesses'], $validated['evidences']);
 
-        $validated['status'] = $this->normalizeStatus($validated['status']);
-        $validated['filed_by'] = auth()->id();
+        $blotter = DB::transaction(function () use ($validated, $respondents, $witnesses, $evidences) {
+            $validated['status'] = $this->normalizeStatus($validated['status']);
+            $validated['filed_by'] = auth()->id();
+            $validated['case_number'] = $this->nextCaseNumber();
+            $validated = $this->normalizeComplainant($validated);
 
-        $blotter = Blotter::create($validated);
-        $this->syncRespondentName($blotter, $respondentName);
+            $blotter = Blotter::create($validated);
+            $this->syncRespondents($blotter, $respondents);
+            $this->syncWitnesses($blotter, $witnesses);
+            $this->storeEvidences($blotter, $evidences);
+
+            return $blotter;
+        });
 
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'Blotter record saved successfully.',
-                'data' => $blotter->load(['filedBy', 'respondents']),
+                'data' => $blotter->load(['filedBy', 'respondents.respondent', 'witnesses.resident_witness', 'evidences']),
                 'dashboard' => $this->dashboardPayload(),
             ], 201);
         }
@@ -158,7 +197,7 @@ class BlotterController extends Controller
 
     public function edit(Request $request, Blotter $blotter)
     {
-        $blotter->load(['complainant_resident', 'respondents.respondent']);
+        $blotter->load(['complainant_resident', 'respondents.respondent', 'witnesses.resident_witness', 'evidences']);
 
         if ($request->expectsJson() || $request->wantsJson()) {
             return response()->json([
@@ -173,17 +212,24 @@ class BlotterController extends Controller
     public function update(Request $request, Blotter $blotter)
     {
         $validated = $this->validatedBlotter($request, $blotter);
-        $respondentName = $validated['respondent_name'] ?? null;
-        unset($validated['respondent_name']);
+        $respondents = $this->normalizePeople($validated['respondents'] ?? [], 'respondent');
+        $witnesses = $this->normalizePeople($validated['witnesses'] ?? [], 'witness');
+        $evidences = $validated['evidences'] ?? [];
+        unset($validated['case_number'], $validated['complainant_mode'], $validated['respondent_name'], $validated['respondents'], $validated['witnesses'], $validated['evidences']);
 
-        $validated['status'] = $this->normalizeStatus($validated['status']);
-        $blotter->update($validated);
-        $this->syncRespondentName($blotter, $respondentName);
+        DB::transaction(function () use ($blotter, $validated, $respondents, $witnesses, $evidences) {
+            $validated['status'] = $this->normalizeStatus($validated['status']);
+            $validated = $this->normalizeComplainant($validated);
+            $blotter->update($validated);
+            $this->syncRespondents($blotter, $respondents);
+            $this->syncWitnesses($blotter, $witnesses);
+            $this->storeEvidences($blotter, $evidences);
+        });
 
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'Blotter record updated successfully.',
-                'data' => $blotter->fresh()->load(['filedBy', 'respondents']),
+                'data' => $blotter->fresh()->load(['filedBy', 'respondents.respondent', 'witnesses.resident_witness', 'evidences']),
                 'dashboard' => $this->dashboardPayload(),
             ]);
         }
@@ -213,18 +259,20 @@ class BlotterController extends Controller
             ->firstOrFail();
 
         $validated = $request->validate([
-            'evidence' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'evidence' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png,mp4,mov,avi,webm', 'max:51200'],
             'caption' => ['nullable', 'string', 'max:255'],
         ]);
 
         $file = $validated['evidence'];
         $path = $file->store('evidence/blotters/' . $blotter->id, 'public');
         $extension = strtolower($file->getClientOriginalExtension());
-        $category = $extension === 'pdf' ? 'document' : 'image';
+        $category = $this->fileCategory($file->getMimeType(), $extension);
 
         $evidence = BlotterEvidence::create([
             'blotter_id' => $blotter->id,
             'file_path' => Storage::url($path),
+            'file_name' => $file->getClientOriginalName(),
+            'file_type' => $file->getMimeType(),
             'file_extension' => $extension,
             'mime_type' => $file->getMimeType(),
             'file_category' => $category,
@@ -240,15 +288,22 @@ class BlotterController extends Controller
     private function validatedBlotter(Request $request, ?Blotter $blotter = null): array
     {
         return $request->validate([
-            'case_number' => [
-                'required',
-                'string',
-                'max:255',
-                Rule::unique('blotters', 'case_number')->ignore($blotter?->id),
-            ],
+            'case_number' => ['nullable', 'string', 'max:255'],
+            'incident_title' => ['nullable', 'string', 'max:255'],
+            'complainant_mode' => ['nullable', Rule::in(['resident', 'manual'])],
             'complainant_name' => ['required_without:complainant_id', 'nullable', 'string', 'max:255'],
             'complainant_id' => ['nullable', 'exists:residents,id'],
             'respondent_name' => ['nullable', 'string', 'max:255'],
+            'respondents' => ['nullable', 'array'],
+            'respondents.*.mode' => ['nullable', Rule::in(['resident', 'manual'])],
+            'respondents.*.resident_id' => ['nullable', 'exists:residents,id'],
+            'respondents.*.name' => ['nullable', 'string', 'max:255'],
+            'witnesses' => ['nullable', 'array'],
+            'witnesses.*.mode' => ['nullable', Rule::in(['resident', 'manual'])],
+            'witnesses.*.resident_id' => ['nullable', 'exists:residents,id'],
+            'witnesses.*.name' => ['nullable', 'string', 'max:255'],
+            'evidences' => ['nullable', 'array'],
+            'evidences.*' => ['file', 'mimes:pdf,doc,docx,jpg,jpeg,png,mp4,mov,avi,webm', 'max:51200'],
             'location' => ['nullable', 'string', 'max:255'],
             'incident_description' => ['required', 'string'],
             'incident_date' => ['required', 'date'],
@@ -307,8 +362,18 @@ class BlotterController extends Controller
         return [
             'id' => $blotter->id,
             'case_number' => $blotter->case_number,
+            'incident_title' => $blotter->incident_title,
+            'complainant_id' => $blotter->complainant_id,
             'complainant_name' => $blotter->complainant_name ?: $this->complainantName($blotter),
             'respondent_name' => $respondent?->respondent_name ?: ($respondent?->respondent ? $this->residentName($respondent->respondent) : ''),
+            'respondents' => $blotter->respondents->map(fn (BlotterRespondent $respondent) => [
+                'resident_id' => $respondent->respondent_id,
+                'name' => $respondent->respondent_name ?: ($respondent->respondent ? $this->residentName($respondent->respondent) : ''),
+            ])->values(),
+            'witnesses' => $blotter->witnesses->map(fn (BlotterWitness $witness) => [
+                'resident_id' => $witness->witness_id,
+                'name' => $witness->witness_name ?: ($witness->resident_witness ? $this->residentName($witness->resident_witness) : ''),
+            ])->values(),
             'location' => $blotter->location,
             'incident_description' => $blotter->incident_description,
             'incident_date' => $blotter->incident_date?->format('Y-m-d\TH:i'),
@@ -316,18 +381,122 @@ class BlotterController extends Controller
         ];
     }
 
-    private function syncRespondentName(Blotter $blotter, ?string $respondentName): void
+    private function syncRespondents(Blotter $blotter, array $respondents): void
     {
-        $respondentName = trim((string) $respondentName);
+        $blotter->respondents()->delete();
 
-        if ($respondentName === '') {
-            return;
+        foreach ($respondents as $respondent) {
+            BlotterRespondent::create([
+                'blotter_id' => $blotter->id,
+                'respondent_id' => $respondent['resident_id'],
+                'respondent_name' => $respondent['name'],
+                'role' => 'Respondent',
+            ]);
+        }
+    }
+
+    private function syncWitnesses(Blotter $blotter, array $witnesses): void
+    {
+        $blotter->witnesses()->delete();
+
+        foreach ($witnesses as $witness) {
+            BlotterWitness::create([
+                'blotter_id' => $blotter->id,
+                'witness_id' => $witness['resident_id'],
+                'witness_name' => $witness['name'],
+            ]);
+        }
+    }
+
+    private function normalizePeople(array $people, string $type): array
+    {
+        if ($type === 'respondent' && $people === [] && request()->filled('respondent_name')) {
+            $people[] = ['mode' => 'manual', 'resident_id' => null, 'name' => request()->input('respondent_name')];
         }
 
-        BlotterRespondent::updateOrCreate(
-            ['blotter_id' => $blotter->id, 'respondent_id' => null],
-            ['respondent_name' => $respondentName, 'role' => 'Respondent']
-        );
+        return collect($people)
+            ->map(function (array $person) {
+                $mode = $person['mode'] ?? null;
+                $residentId = $person['resident_id'] ?? null;
+                $name = trim((string) ($person['name'] ?? ''));
+
+                if ($mode === 'resident' || ($mode === null && $residentId)) {
+                    return [
+                        'resident_id' => $residentId ?: null,
+                        'name' => null,
+                    ];
+                }
+
+                return [
+                    'resident_id' => null,
+                    'name' => $name ?: null,
+                ];
+            })
+            ->filter(fn (array $person) => $person['resident_id'] || $person['name'])
+            ->values()
+            ->all();
+    }
+
+    private function normalizeComplainant(array $validated): array
+    {
+        if (! empty($validated['complainant_id'])) {
+            $validated['complainant_name'] = null;
+        } else {
+            $validated['complainant_id'] = null;
+            $validated['complainant_name'] = trim((string) ($validated['complainant_name'] ?? '')) ?: null;
+        }
+
+        return $validated;
+    }
+
+    private function nextCaseNumber(): string
+    {
+        $lastNumber = Blotter::withTrashed()
+            ->where('case_number', 'like', 'BL-%')
+            ->lockForUpdate()
+            ->pluck('case_number')
+            ->reduce(function (int $highest, string $caseNumber) {
+                if (preg_match('/^BL-(\d{6})$/', $caseNumber, $matches) !== 1) {
+                    return $highest;
+                }
+
+                return max($highest, (int) $matches[1]);
+            }, 0);
+
+        return 'BL-' . str_pad((string) ($lastNumber + 1), 6, '0', STR_PAD_LEFT);
+    }
+
+    private function storeEvidences(Blotter $blotter, array $files): void
+    {
+        foreach ($files as $file) {
+            $path = $file->store('evidence/blotters/' . $blotter->id, 'public');
+            $extension = strtolower($file->getClientOriginalExtension());
+            $mimeType = $file->getMimeType();
+
+            BlotterEvidence::create([
+                'blotter_id' => $blotter->id,
+                'file_path' => Storage::url($path),
+                'file_name' => $file->getClientOriginalName(),
+                'file_type' => $mimeType,
+                'file_extension' => $extension,
+                'mime_type' => $mimeType,
+                'file_category' => $this->fileCategory($mimeType, $extension),
+                'caption' => $file->getClientOriginalName(),
+            ]);
+        }
+    }
+
+    private function fileCategory(?string $mimeType, string $extension): string
+    {
+        if (str_starts_with((string) $mimeType, 'image/')) {
+            return 'image';
+        }
+
+        if (str_starts_with((string) $mimeType, 'video/')) {
+            return 'video';
+        }
+
+        return in_array($extension, ['jpg', 'jpeg', 'png'], true) ? 'image' : 'document';
     }
 
     private function normalizeStatus(string $status): string

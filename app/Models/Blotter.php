@@ -15,10 +15,9 @@ class Blotter extends Model
 
     protected $fillable = [
         'case_number',
+        'incident_title',
         'complainant_id',
         'complainant_name',
-        'respondent_id',
-        'respondent_name',
         'location',
         'incident_description',
         'incident_date',

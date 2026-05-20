@@ -29,6 +29,7 @@ Route::middleware('auth')->group(function () {
     // BLOTTERS ROUTE
     Route::get('/blotters/data', [BlotterController::class, 'data'])->name('blotters.data');
     Route::get('/blotters/export', [BlotterController::class, 'export'])->name('blotters.export');
+    Route::get('/blotters/residents/search', [BlotterController::class, 'residentsSearch'])->name('blotters.residents.search');
     Route::post('/blotters/{blotter}/evidence', [BlotterController::class, 'uploadEvidence'])->name('blotters.evidence');
     Route::resource('blotters', BlotterController::class);
 

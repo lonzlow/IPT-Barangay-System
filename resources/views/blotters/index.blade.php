@@ -65,6 +65,49 @@
     .dataTables_wrapper .dt-paging {
         padding: 14px 18px;
     }
+    .party-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 14px;
+        background: #f8fafc;
+    }
+    .resident-results {
+        position: absolute;
+        z-index: 1060;
+        right: 0;
+        left: 0;
+        max-height: 210px;
+        overflow-y: auto;
+        border: 1px solid #dbe4f0;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, .14);
+    }
+    .resident-results option {
+        padding: 9px 12px;
+        font-size: 13px;
+    }
+    #blotterModal .modal-dialog {
+        height: calc(100vh - 2rem);
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+    }
+    #blotterModal .modal-content {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    #blotterForm {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+    }
+    #blotterModal .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+    }
 </style>
 @endsection
 
@@ -149,13 +192,13 @@
                 <div class="card-sub mb-4">Upload files for an existing blotter record</div>
                 <form id="evidenceForm">
                     <label class="form-label fw-700">Blotter Reference No.</label>
-                    <input type="text" class="form-control mb-3" name="reference" placeholder="e.g. BLT-2025-0048" required>
-                    <input type="file" class="d-none" id="evidenceFile" name="evidence" accept=".pdf,.jpg,.jpeg,.png" required>
+                    <input type="text" class="form-control mb-3" name="reference" placeholder="e.g. BL-000001" required>
+                    <input type="file" class="d-none" id="evidenceFile" name="evidence" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.mp4,.mov,.avi,.webm" required>
                     <div class="upload-zone mb-3" id="uploadZone">
                         <div>
                             <i class="bi bi-cloud-arrow-up-fill d-block mb-3" style="font-size:24px;"></i>
                             <div class="fw-700" id="uploadLabel">Drop files here or click to browse</div>
-                            <div style="font-size:12px;">PDF, JPG, PNG - max 10MB each</div>
+                            <div style="font-size:12px;">PDF, DOC, images, videos - max 50MB</div>
                         </div>
                     </div>
                     <button type="submit" class="btn btn-outline-primary w-100 fw-700">
@@ -215,61 +258,171 @@
 </div>
 
 <div class="modal fade" id="blotterModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title fw-800">Blotter Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="blotterForm">
+            <form id="blotterForm" method="POST" action="{{ route('blotters.store') }}" enctype="multipart/form-data">
                 @csrf
                 <input type="hidden" id="blotterId" name="id">
                 <div class="modal-body">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-600">Case Number</label>
-                            <input type="text" class="form-control" name="case_number" required>
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <i class="bi bi-journal-plus text-primary"></i>
+                                <h6 class="fw-800 mb-0">Incident Details</h6>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label fw-600">Case Number</label>
+                                    <input type="text" class="form-control" id="caseNumberDisplay" value="Auto-generated on save" readonly>
+                                    <div class="invalid-feedback"></div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label fw-600">Incident Title</label>
+                                    <input type="text" class="form-control" name="incident_title" placeholder="Short case title">
+                                    <div class="invalid-feedback"></div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label fw-600">Status</label>
+                                    <select class="form-select" name="status" required>
+                                        <option value="pending">Open</option>
+                                        <option value="under investigation">Ongoing / Mediation</option>
+                                        <option value="resolved">Resolved</option>
+                                        <option value="dismissed">Dismissed</option>
+                                        <option value="referred">Referred</option>
+                                    </select>
+                                    <div class="invalid-feedback"></div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-600">Incident Date and Time</label>
+                                    <input type="datetime-local" class="form-control" name="incident_date" required>
+                                    <div class="invalid-feedback"></div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-600">Incident Location</label>
+                                    <input type="text" class="form-control" name="location">
+                                    <div class="invalid-feedback"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="form-label fw-600">Incident Description</label>
+                                <textarea class="form-control" name="incident_description" rows="3" required></textarea>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <i class="bi bi-person-vcard text-primary"></i>
+                                <h6 class="fw-800 mb-0">Complainant</h6>
+                            </div>
+                            <div class="party-card" data-person-section="complainant" data-index="0">
+                                <div class="d-flex gap-3 flex-wrap mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input person-mode" type="radio" name="complainant_mode" value="resident" id="complainantResident">
+                                        <label class="form-check-label fw-600" for="complainantResident">Registered resident</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input person-mode" type="radio" name="complainant_mode" value="manual" id="complainantManual" checked>
+                                        <label class="form-check-label fw-600" for="complainantManual">Non-resident</label>
+                                    </div>
+                                </div>
+                                <input type="hidden" name="complainant_id" data-resident-id>
+                                <div class="resident-field d-none position-relative">
+                                    <label class="form-label fw-600">Search Resident</label>
+                                    <input type="text" class="form-control resident-search" placeholder="Type a resident name or number">
+                                    <select class="form-select resident-results d-none" size="5"></select>
+                                    <div class="invalid-feedback"></div>
+                                </div>
+                                <div class="manual-field">
+                                    <label class="form-label fw-600">Complainant Name</label>
+                                    <input type="text" class="form-control" name="complainant_name" required>
+                                    <div class="invalid-feedback"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-people text-primary"></i>
+                                    <h6 class="fw-800 mb-0">Respondents</h6>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary fw-700" id="addRespondentBtn">
+                                    <i class="bi bi-plus-lg me-1"></i>Add Respondent
+                                </button>
+                            </div>
+                            <div id="respondentsContainer" class="d-grid gap-3"></div>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm mb-3">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                                <div class="d-flex align-items-center gap-2">
+                                    <i class="bi bi-person-lines-fill text-primary"></i>
+                                    <h6 class="fw-800 mb-0">Witnesses</h6>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-outline-primary fw-700" id="addWitnessBtn">
+                                    <i class="bi bi-plus-lg me-1"></i>Add Witness
+                                </button>
+                            </div>
+                            <div id="witnessesContainer" class="d-grid gap-3"></div>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center gap-2 mb-3">
+                                <i class="bi bi-paperclip text-primary"></i>
+                                <h6 class="fw-800 mb-0">Evidence Uploads</h6>
+                            </div>
+                            <input type="file" class="form-control" name="evidences[]" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.mp4,.mov,.avi,.webm" multiple>
+                            <div class="form-text">Optional. Attach images, videos, PDFs, or documents up to 50MB each.</div>
                             <div class="invalid-feedback"></div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-600">Status</label>
-                            <select class="form-select" name="status" required>
-                                <option value="pending">Open</option>
-                                <option value="under investigation">Ongoing / Mediation</option>
-                                <option value="resolved">Resolved</option>
-                                <option value="dismissed">Dismissed</option>
-                                <option value="referred">Referred</option>
-                            </select>
-                            <div class="invalid-feedback"></div>
+                    </div>
+                    <template id="partyTemplate">
+                        <div class="party-card" data-person-section data-index>
+                            <div class="d-flex align-items-start justify-content-between gap-2 mb-3">
+                                <div class="fw-800 party-title"></div>
+                                <button type="button" class="btn btn-sm btn-light text-danger remove-party" title="Remove">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            <div class="d-flex gap-3 flex-wrap mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input person-mode" type="radio" value="resident">
+                                    <label class="form-check-label fw-600">Registered resident</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input person-mode" type="radio" value="manual" checked>
+                                    <label class="form-check-label fw-600">Non-resident</label>
+                                </div>
+                            </div>
+                            <input type="hidden" data-resident-id>
+                            <div class="resident-field d-none position-relative">
+                                <label class="form-label fw-600">Search Resident</label>
+                                <input type="text" class="form-control resident-search" placeholder="Type a resident name or number">
+                                <select class="form-select resident-results d-none" size="5"></select>
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            <div class="manual-field">
+                                <label class="form-label fw-600 manual-label"></label>
+                                <input type="text" class="form-control manual-name">
+                                <div class="invalid-feedback"></div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-600">Complainant Name</label>
-                            <input type="text" class="form-control" name="complainant_name" required>
-                            <div class="invalid-feedback"></div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-600">Respondent / Involved Party</label>
-                            <input type="text" class="form-control" name="respondent_name">
-                            <div class="invalid-feedback"></div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-600">Location</label>
-                        <input type="text" class="form-control" name="location">
-                        <div class="invalid-feedback"></div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-600">Incident Description</label>
-                        <textarea class="form-control" name="incident_description" rows="3" required></textarea>
-                        <div class="invalid-feedback"></div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-600">Incident Date</label>
-                        <input type="datetime-local" class="form-control" name="incident_date" required>
-                        <div class="invalid-feedback"></div>
-                    </div>
+                    </template>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -322,13 +475,21 @@ function clearValidation() {
 }
 
 function showFormErrors(errors) {
+    let firstInvalidInput = null;
+
     Object.keys(errors).forEach((field) => {
         const input = blotterForm.querySelector(`[name="${field}"]`);
-        if (!input) return;
+        if (!input) {
+            showAlert(errors[field][0], "danger");
+            return;
+        }
         input.classList.add("is-invalid");
+        firstInvalidInput ??= input;
         const feedback = input.parentElement.querySelector(".invalid-feedback");
         if (feedback) feedback.textContent = errors[field][0];
     });
+
+    firstInvalidInput?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
 function updateSummary(summary) {
@@ -340,10 +501,182 @@ function updateSummary(summary) {
     });
 }
 
+function resetParties() {
+    document.getElementById("respondentsContainer").innerHTML = "";
+    document.getElementById("witnessesContainer").innerHTML = "";
+    setComplainantMode("manual");
+    addParty("respondent");
+}
+
+function setComplainantMode(mode, resident = null, name = "") {
+    const section = blotterForm.querySelector("[data-person-section=\"complainant\"]");
+    const residentRadio = section.querySelector("[value=\"resident\"]");
+    const manualRadio = section.querySelector("[value=\"manual\"]");
+    residentRadio.checked = mode === "resident";
+    manualRadio.checked = mode !== "resident";
+    section.querySelector("[data-resident-id]").value = mode === "resident" ? (resident?.id || "") : "";
+    section.querySelector(".resident-search").value = mode === "resident" ? (resident?.text || name || "") : "";
+    section.querySelector("[name=\"complainant_name\"]").value = mode === "resident" ? "" : name;
+    togglePersonMode(section);
+}
+
+function partyContainerId(type) {
+    return type === "witness" ? "witnessesContainer" : `${type}sContainer`;
+}
+
+function partyFieldName(type) {
+    return type === "witness" ? "witnesses" : `${type}s`;
+}
+
+function addParty(type, person = {}) {
+    const container = document.getElementById(partyContainerId(type));
+    const index = container.children.length;
+    const node = document.getElementById("partyTemplate").content.firstElementChild.cloneNode(true);
+    const label = type === "respondent" ? "Respondent" : "Witness";
+    const mode = person.resident_id ? "resident" : "manual";
+
+    node.dataset.personSection = type;
+    node.dataset.index = index;
+    node.querySelector(".party-title").textContent = `${label} #${index + 1}`;
+    node.querySelector(".manual-label").textContent = `${label} Name`;
+    node.querySelectorAll(".person-mode").forEach((input) => {
+        input.name = `${partyFieldName(type)}[${index}][mode]`;
+        input.checked = input.value === mode;
+    });
+    node.querySelector("[data-resident-id]").name = `${partyFieldName(type)}[${index}][resident_id]`;
+    node.querySelector("[data-resident-id]").value = person.resident_id || "";
+    node.querySelector(".manual-name").name = `${partyFieldName(type)}[${index}][name]`;
+    node.querySelector(".manual-name").value = person.resident_id ? "" : (person.name || "");
+    node.querySelector(".resident-search").value = person.resident_id ? (person.name || "") : "";
+    container.appendChild(node);
+    togglePersonMode(node);
+}
+
+function reindexParties(type) {
+    document.querySelectorAll(`#${partyContainerId(type)} .party-card`).forEach((node, index) => {
+        const label = type === "respondent" ? "Respondent" : "Witness";
+        node.dataset.index = index;
+        node.querySelector(".party-title").textContent = `${label} #${index + 1}`;
+        node.querySelectorAll(".person-mode").forEach((input) => input.name = `${partyFieldName(type)}[${index}][mode]`);
+        node.querySelector("[data-resident-id]").name = `${partyFieldName(type)}[${index}][resident_id]`;
+        node.querySelector(".manual-name").name = `${partyFieldName(type)}[${index}][name]`;
+    });
+}
+
+function togglePersonMode(section) {
+    const mode = section.querySelector(".person-mode:checked")?.value || "manual";
+    const isResident = mode === "resident";
+    const residentField = section.querySelector(".resident-field");
+    const manualField = section.querySelector(".manual-field");
+    const residentSearch = section.querySelector(".resident-search");
+    const manualInput = section.querySelector(".manual-name, [name=\"complainant_name\"]");
+
+    residentField?.classList.toggle("d-none", !isResident);
+    manualField?.classList.toggle("d-none", isResident);
+
+    if (residentSearch) {
+        residentSearch.disabled = !isResident;
+        residentSearch.required = isResident;
+    }
+
+    if (manualInput) {
+        manualInput.disabled = isResident;
+        manualInput.required = !isResident;
+    }
+
+    if (!isResident) {
+        section.querySelector("[data-resident-id]").value = "";
+        if (residentSearch) residentSearch.value = "";
+        section.querySelector(".resident-results")?.classList.add("d-none");
+    } else {
+        if (manualInput) manualInput.value = "";
+    }
+}
+
+function validateResidentSelections() {
+    let isValid = true;
+
+    blotterForm.querySelectorAll(".party-card").forEach((section) => {
+        const mode = section.querySelector(".person-mode:checked")?.value || "manual";
+        const residentId = section.querySelector("[data-resident-id]")?.value;
+        const searchInput = section.querySelector(".resident-search");
+        const manualInput = section.querySelector(".manual-name, [name=\"complainant_name\"]");
+
+        if (mode === "resident" && !residentId && searchInput) {
+            searchInput.classList.add("is-invalid");
+            const feedback = searchInput.parentElement.querySelector(".invalid-feedback");
+            if (feedback) feedback.textContent = "Select a resident from the search results.";
+            isValid = false;
+        }
+
+        if (mode === "manual" && manualInput && !manualInput.value.trim()) {
+            manualInput.classList.add("is-invalid");
+            const feedback = manualInput.parentElement.querySelector(".invalid-feedback");
+            if (feedback) feedback.textContent = "Enter the non-resident name.";
+            isValid = false;
+        }
+    });
+
+    return isValid;
+}
+
+async function searchResidents(input) {
+    const query = input.value.trim();
+    const section = input.closest(".party-card");
+    const results = section.querySelector(".resident-results");
+    section.querySelector("[data-resident-id]").value = "";
+    input.classList.remove("is-invalid");
+
+    if (query.length < 2) {
+        results.classList.add("d-none");
+        results.innerHTML = "";
+        return;
+    }
+
+    const searchUrl = new URL("{{ route('blotters.residents.search') }}", window.location.origin);
+    searchUrl.searchParams.set("q", query);
+
+    let payload = null;
+    if (axiosInstance) {
+        const response = await axiosInstance.get(searchUrl.toString());
+        payload = response.data;
+    } else {
+        const response = await fetch(searchUrl.toString(), {
+            headers: {
+                "Accept": "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+            },
+        });
+        payload = await response.json();
+    }
+
+    const rows = payload?.results || [];
+    results.innerHTML = "";
+
+    if (!rows.length) {
+        const option = new Option("No residents found", "");
+        option.disabled = true;
+        results.appendChild(option);
+        results.classList.remove("d-none");
+        return;
+    }
+
+    rows.forEach((resident) => {
+        const option = new Option(resident.text, resident.id);
+        option.dataset.name = resident.name;
+        option.dataset.text = resident.text;
+        results.appendChild(option);
+    });
+
+    results.classList.remove("d-none");
+}
+
 window.openCreateModal = () => {
     blotterForm.reset();
     clearValidation();
     document.getElementById("blotterId").value = "";
+    document.getElementById("caseNumberDisplay").value = "Auto-generated on save";
+    resetParties();
     blotterModal.show();
 };
 
@@ -352,10 +685,19 @@ async function editBlotter(id) {
     try {
         const response = await axiosInstance.get(`/blotters/${id}/edit`);
         const data = response.data?.data || {};
+        resetParties();
         document.getElementById("blotterId").value = data.id || id;
-        blotterForm.querySelector("[name=\"case_number\"]").value = data.case_number || "";
-        blotterForm.querySelector("[name=\"complainant_name\"]").value = data.complainant_name || "";
-        blotterForm.querySelector("[name=\"respondent_name\"]").value = data.respondent_name || "";
+        document.getElementById("caseNumberDisplay").value = data.case_number || "";
+        blotterForm.querySelector("[name=\"incident_title\"]").value = data.incident_title || "";
+        if (data.complainant_id) {
+            setComplainantMode("resident", { id: data.complainant_id, text: data.complainant_name || "" }, data.complainant_name || "");
+        } else {
+            setComplainantMode("manual", null, data.complainant_name || "");
+        }
+        document.getElementById("respondentsContainer").innerHTML = "";
+        (data.respondents?.length ? data.respondents : [{ name: data.respondent_name || "" }]).forEach((person) => addParty("respondent", person));
+        document.getElementById("witnessesContainer").innerHTML = "";
+        (data.witnesses || []).forEach((person) => addParty("witness", person));
         blotterForm.querySelector("[name=\"location\"]").value = data.location || "";
         blotterForm.querySelector("[name=\"incident_description\"]").value = data.incident_description || "";
         blotterForm.querySelector("[name=\"incident_date\"]").value = data.incident_date || "";
@@ -382,13 +724,23 @@ blotterForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     clearValidation();
 
+    if (!validateResidentSelections()) {
+        return;
+    }
+
     const id = document.getElementById("blotterId").value;
-    const method = id ? "put" : "post";
+    const method = "post";
     const url = id ? `/blotters/${id}` : "/blotters";
-    const data = Object.fromEntries(new FormData(blotterForm));
+    const data = new FormData(blotterForm);
+    if (id) data.append("_method", "PUT");
 
     try {
-        const response = await axiosInstance({ method, url, data });
+        if (!axiosInstance) {
+            blotterForm.submit();
+            return;
+        }
+
+        const response = await axiosInstance({ method, url, data, headers: { "Content-Type": "multipart/form-data" } });
         showAlert(response.data?.message || "Blotter record saved successfully.");
         updateSummary(response.data?.dashboard?.summary);
         blotterModal.hide();
@@ -399,7 +751,11 @@ blotterForm.addEventListener("submit", async (event) => {
             showFormErrors(error.response.data.errors || {});
             return;
         }
-        showAlert(error.response?.data?.message || "An error occurred while saving.", "danger");
+
+        const message = error.response?.data?.message
+            || error.message
+            || "An error occurred while saving.";
+        showAlert(message, "danger");
     }
 });
 
@@ -446,7 +802,59 @@ evidenceForm.addEventListener("submit", async (event) => {
     }
 });
 
+document.getElementById("addRespondentBtn").addEventListener("click", () => addParty("respondent"));
+document.getElementById("addWitnessBtn").addEventListener("click", () => addParty("witness"));
+
+blotterForm.addEventListener("change", (event) => {
+    if (!event.target.classList.contains("person-mode")) return;
+    togglePersonMode(event.target.closest(".party-card"));
+});
+
+blotterForm.addEventListener("click", (event) => {
+    const removeButton = event.target.closest(".remove-party");
+    if (removeButton) {
+        const section = removeButton.closest(".party-card");
+        const type = section.dataset.personSection;
+        section.remove();
+        reindexParties(type);
+        return;
+    }
+
+});
+
+blotterForm.addEventListener("change", (event) => {
+    if (!event.target.classList.contains("resident-results")) return;
+
+    const option = event.target.selectedOptions[0];
+    if (!option?.value) return;
+
+    const section = event.target.closest(".party-card");
+    const searchInput = section.querySelector(".resident-search");
+
+    section.querySelector("[data-resident-id]").value = option.value;
+    searchInput.value = option.dataset.text || option.textContent;
+    searchInput.classList.remove("is-invalid");
+    event.target.classList.add("d-none");
+});
+
+let residentSearchTimer = null;
+blotterForm.addEventListener("input", (event) => {
+    if (!event.target.classList.contains("resident-search")) return;
+    clearTimeout(residentSearchTimer);
+    residentSearchTimer = setTimeout(() => searchResidents(event.target).catch(() => {
+        const section = event.target.closest(".party-card");
+        const results = section.querySelector(".resident-results");
+        results.innerHTML = "";
+        const option = new Option("Unable to load residents", "");
+        option.disabled = true;
+        results.appendChild(option);
+        results.classList.remove("d-none");
+    }), 250);
+});
+
 document.addEventListener("DOMContentLoaded", () => {
+    resetParties();
+
     if (window.Chart) {
         statusChart = new Chart(document.getElementById("statusChart"), {
             type: "doughnut",
