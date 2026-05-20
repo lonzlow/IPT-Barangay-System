@@ -629,7 +629,10 @@
                 documentsTable = $('#documentsTable').DataTable({
                     processing: true,
                     serverSide: true,
-                    ajax: '{{ route("documents.data") }}',
+                    ajax: {
+                        url: '{{ route("documents.data") }}',
+                        dataSrc: 'data'
+                    },
                     columns: [
                         { data: 'reference_number', name: 'reference_number' },
                         { data: 'resident_name', name: 'resident_name' },

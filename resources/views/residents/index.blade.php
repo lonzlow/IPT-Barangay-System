@@ -392,12 +392,17 @@ Route: GET /residents → route('residents.index')
 
         // YAJRA RESIDENTS TABLE
         var table;
-        $(document).ready(function () {
-            table = $('#residents-table').DataTable({
+        window.addEventListener('load', function () {
+            if (!window.$ || !window.$.fn || !window.$.fn.DataTable) {
+                return;
+            }
+
+            table = window.$('#residents-table').DataTable({
                 processing: true,
                 serverSide: true,
                 ajax: {
                     url: "{{ route('residents.data') }}",
+                    dataSrc: "data",
                     data: function (d) {
                         d.gender = document.getElementById('gender-filter').value;
                         d.residency_status = document.getElementById('residency-filter').value;

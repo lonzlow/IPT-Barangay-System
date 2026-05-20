@@ -252,7 +252,10 @@
             $('#users-table').DataTable({
                 processing: true,
                 serverSide: true,
-                ajax: "{{ route('users.data') }}",
+                ajax: {
+                    url: "{{ route('users.data') }}",
+                    dataSrc: 'data'
+                },
                 columns: [
                     {data: 'id', name: 'id'},
                     {data: 'first_name', name: 'first_name'},
