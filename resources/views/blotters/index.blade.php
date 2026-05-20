@@ -62,7 +62,7 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label fw-600">Description</label>
-                        <textarea class="form-control" name="incident_description" rows="3"></textarea>
+                        <textarea class="form-control" name="incident_description" rows="3" required></textarea>
                         <div class="invalid-feedback"></div>
                     </div>
                     <div class="row">
@@ -116,131 +116,231 @@
 <script src="https://cdn.datatables.net/v/bs5/dt-2.0.2/datatables.min.js"></script>
 <script>
 const blotterModal = new bootstrap.Modal(document.getElementById('blotterModal'));
+const blotterViewModal = new bootstrap.Modal(document.getElementById('blotterViewModal'));
+const blotterForm = document.getElementById('blotterForm');
+const viewContent = document.getElementById('viewContent');
+const alertContainer = document.getElementById('alertContainer');
 let currentBlotterId = null;
+let blottersTable = null;
+
+const axiosInstance = window.axios;
+if (axiosInstance) {
+    axiosInstance.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+    axiosInstance.defaults.headers.common['Accept'] = 'application/json';
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (csrfToken) {
+        axiosInstance.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
+    }
+}
+
+function showAlert(message, type = 'success') {
+    if (!alertContainer) return;
+    alertContainer.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+}
+
+function clearValidation() {
+    blotterForm.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+    blotterForm.querySelectorAll('.invalid-feedback').forEach(el => el.textContent = '');
+}
+
+function showFormErrors(errors) {
+    Object.keys(errors).forEach(field => {
+        const input = blotterForm.querySelector(`[name="${field}"]`);
+        if (!input) return;
+        input.classList.add('is-invalid');
+        const feedback = input.parentElement.querySelector('.invalid-feedback');
+        if (feedback) {
+            feedback.textContent = errors[field][0];
+        }
+    });
+}
+
+function toLocalDateTime(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toISOString().slice(0, 16);
+}
+
+function escapeHtml(value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
 
 function openCreateModal() {
-    document.getElementById('blotterForm').reset();
+    blotterForm.reset();
+    clearValidation();
     document.getElementById('blotterId').value = '';
     document.querySelector('#blotterModal .modal-title').textContent = 'Add Blotter Record';
-    document.getElementById('blotterForm').style.display = 'block';
+    blotterForm.style.display = 'block';
     blotterModal.show();
 }
 
 async function editBlotter(id) {
+    if (!axiosInstance) return;
     currentBlotterId = id;
-    const res = await fetch(`/blotters/${id}/edit`);
-    const data = await res.json();
-    if (data) {
-        document.getElementById('blotterId').value = data.id;
-        document.querySelector('[name="case_number"]').value = data.case_number || '';
-        document.querySelector('[name="complainant"]').value = data.complainant || '';
-        document.querySelector('[name="respondent"]').value = data.respondent || '';
-        document.querySelector('[name="incident_description"]').value = data.incident_description || '';
-        document.querySelector('[name="incident_date"]').value = data.incident_date ? data.incident_date.split('T')[0] + 'T' + data.incident_date.split('T')[1].substring(0, 5) : '';
-        document.querySelector('[name="status"]').value = data.status || '';
-        document.querySelector('#blotterModal .modal-title').textContent = 'Edit Blotter Record';
-        document.getElementById('blotterForm').style.display = 'block';
-        blotterModal.show();
-    }
-}
-
-async function deleteBlotter(id) {
-    if (!confirm('Are you sure you want to delete this blotter record?')) return;
+    clearValidation();
     try {
-        const res = await fetch(`/blotters/${id}`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Accept': 'application/json'
-            }
-        });
-        if (res.ok) {
-            alert('Blotter record deleted successfully');
-            location.reload();
-        } else {
-            alert('Failed to delete record');
-        }
-    } catch (err) {
-        alert('Error: ' + err.message);
+        const response = await axiosInstance.get(`/blotters/${id}/edit`);
+        const record = response.data?.data || response.data;
+        document.getElementById('blotterId').value = record.id;
+        document.querySelector('[name="case_number"]').value = record.case_number || '';
+        document.querySelector('[name="complainant"]').value = record.complainant || '';
+        document.querySelector('[name="respondent"]').value = record.respondent || '';
+        document.querySelector('[name="incident_description"]').value = record.incident_description || '';
+        document.querySelector('[name="incident_date"]').value = toLocalDateTime(record.incident_date);
+        document.querySelector('[name="status"]').value = record.status || '';
+        document.querySelector('#blotterModal .modal-title').textContent = 'Edit Blotter Record';
+        blotterForm.style.display = 'block';
+        blotterModal.show();
+    } catch (error) {
+        showAlert('Failed to load blotter record.', 'danger');
     }
 }
 
-function viewBlotter(id) {
-    window.location.href = `/blotters/${id}`;
+async function viewBlotter(id) {
+    if (!axiosInstance) return;
+    currentBlotterId = id;
+    try {
+        const response = await axiosInstance.get(`/blotters/${id}`);
+        const record = response.data?.data || response.data;
+        const filedBy = record.filed_by?.name || '—';
+        const incidentDate = record.incident_date ? new Date(record.incident_date).toLocaleString() : '—';
+        const statusLabel = record.status ? record.status.charAt(0).toUpperCase() + record.status.slice(1) : '—';
+
+        viewContent.innerHTML = `
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="fw-600">Case No.</div>
+                    <div>${escapeHtml(record.case_number || '—')}</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="fw-600">Status</div>
+                    <div>${escapeHtml(statusLabel)}</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="fw-600">Complainant</div>
+                    <div>${escapeHtml(record.complainant || '—')}</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="fw-600">Respondent</div>
+                    <div>${escapeHtml(record.respondent || '—')}</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="fw-600">Incident Date</div>
+                    <div>${escapeHtml(incidentDate)}</div>
+                </div>
+                <div class="col-md-6">
+                    <div class="fw-600">Filed By</div>
+                    <div>${escapeHtml(filedBy)}</div>
+                </div>
+            </div>
+            <div class="mt-3">
+                <div class="fw-600">Description</div>
+                <div>${escapeHtml(record.incident_description || '—')}</div>
+            </div>
+        `;
+        blotterViewModal.show();
+    } catch (error) {
+        showAlert('Failed to load blotter details.', 'danger');
+    }
 }
 
 function editCurrentBlotter() {
     if (currentBlotterId) {
+        blotterViewModal.hide();
         editBlotter(currentBlotterId);
     }
 }
 
-document.getElementById('blotterForm').addEventListener('submit', async (e) => {
+async function deleteBlotter(id) {
+    if (!axiosInstance) return;
+    if (!confirm('Are you sure you want to delete this blotter record?')) return;
+    try {
+        const response = await axiosInstance.delete(`/blotters/${id}`);
+        showAlert(response.data?.message || 'Blotter record deleted successfully');
+        if (blottersTable) {
+            blottersTable.ajax.reload(null, false);
+        }
+    } catch (error) {
+        showAlert(error.response?.data?.message || 'Failed to delete record.', 'danger');
+    }
+}
+
+blotterForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!axiosInstance) return;
+    clearValidation();
+
     const id = document.getElementById('blotterId').value;
     const url = id ? `/blotters/${id}` : '/blotters';
-    const method = id ? 'PUT' : 'POST';
-    
-    const formData = new FormData(e.target);
+    const method = id ? 'put' : 'post';
+    const formData = new FormData(blotterForm);
     const data = Object.fromEntries(formData);
 
     try {
-        const res = await fetch(url, {
-            method: method,
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(data)
-        });
-        
-        if (res.ok) {
-            alert('Blotter record saved successfully');
-            blotterModal.hide();
-            location.reload();
-        } else {
-            const errorData = await res.json();
-            alert('Error: ' + JSON.stringify(errorData.errors || errorData.message));
+        const response = await axiosInstance({ method, url, data });
+        showAlert(response.data?.message || 'Blotter record saved successfully');
+        blotterModal.hide();
+        blotterForm.reset();
+        if (blottersTable) {
+            blottersTable.ajax.reload(null, false);
         }
-    } catch (err) {
-        alert('An error occurred: ' + err.message);
+    } catch (error) {
+        if (error.response?.status === 422) {
+            showFormErrors(error.response.data.errors || {});
+            return;
+        }
+        showAlert(error.response?.data?.message || 'An error occurred while saving.', 'danger');
     }
 });
 
-// DataTable initialization
-const table = document.getElementById("blottersTable");
-if ($.fn.DataTable) {
-    let dt = $("#blottersTable").DataTable({
-        processing: true,
-        serverSide: false,
-        ajax: {
-            url: "{{ route("blotters.index") }}",
-            dataSrc: "data"
-        },
-        columns: [
-            { data: "case_number" },
-            { data: "complainant" },
-            { data: "respondent" },
-            { data: "incident_date", render: function(data) {
-                return new Date(data).toLocaleDateString();
-            }},
-            { data: "status", render: function(data) {
-                const colors = {
-                    open: "#fee2e2#dc2626",
-                    ongoing: "#fef3c7#b45309",
-                    resolved: "#dcfce7#15803d",
-                    referred: "#f1f5f9#64748b"
-                };
-                return `<span class="badge" style="background:${colors[data] || "#f1f5f9"};">${data}</span>`;
-            }},
-            { data: "id", render: function(data) {
-                return `<button class="btn btn-sm btn-light" onclick="viewBlotter(${data})"><i class="bi bi-eye"></i></button>
-                        <button class="btn btn-sm btn-light" onclick="editBlotter(${data})"><i class="bi bi-pencil"></i></button>
-                        <button class="btn btn-sm btn-light" onclick="deleteBlotter(${data})"><i class="bi bi-trash"></i></button>`;
-            }, orderable: false }
-        ]
-    });
-}
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.$ && $.fn.DataTable) {
+        blottersTable = $("#blottersTable").DataTable({
+            processing: true,
+            serverSide: false,
+            ajax: {
+                url: "{{ route("blotters.index") }}",
+                dataSrc: "data",
+                headers: { 'Accept': 'application/json' }
+            },
+            columns: [
+                { data: "case_number" },
+                { data: "complainant" },
+                { data: "respondent" },
+                { data: "incident_date", render: function(data) {
+                    return data ? new Date(data).toLocaleDateString() : '—';
+                }},
+                { data: "status", render: function(data) {
+                    const styles = {
+                        open: { bg: "#fee2e2", text: "#dc2626" },
+                        ongoing: { bg: "#fef3c7", text: "#b45309" },
+                        resolved: { bg: "#dcfce7", text: "#15803d" },
+                        referred: { bg: "#f1f5f9", text: "#64748b" }
+                    };
+                    const style = styles[data] || { bg: "#f1f5f9", text: "#64748b" };
+                    const label = data ? data.charAt(0).toUpperCase() + data.slice(1) : '—';
+                    return `<span class="badge" style="background:${style.bg};color:${style.text};">${label}</span>`;
+                }},
+                { data: "id", render: function(data) {
+                    return `<button class="btn btn-sm btn-light" onclick="viewBlotter(${data})"><i class="bi bi-eye"></i></button>
+                            <button class="btn btn-sm btn-light" onclick="editBlotter(${data})"><i class="bi bi-pencil"></i></button>
+                            <button class="btn btn-sm btn-light" onclick="deleteBlotter(${data})"><i class="bi bi-trash"></i></button>`;
+                }, orderable: false, searchable: false }
+            ]
+        });
+    }
+});
 </script>
 @endpush

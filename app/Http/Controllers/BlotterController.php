@@ -10,9 +10,25 @@ class BlotterController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $blotters = Blotter::with('filedBy')->paginate(15);
+        $blotters = Blotter::with('filedBy')->latest()->get();
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'data' => $blotters->map(function (Blotter $blotter) {
+                    return [
+                        'id' => $blotter->id,
+                        'case_number' => $blotter->case_number,
+                        'complainant' => $blotter->complainant,
+                        'respondent' => $blotter->respondent,
+                        'incident_date' => optional($blotter->incident_date)->toIso8601String(),
+                        'status' => $blotter->status,
+                    ];
+                }),
+            ]);
+        }
+
         return view('blotters.index', compact('blotters'));
     }
 
@@ -21,7 +37,7 @@ class BlotterController extends Controller
      */
     public function create()
     {
-        return view('blotters.create');
+        return redirect()->route('blotters.index');
     }
 
     /**
@@ -55,29 +71,31 @@ class BlotterController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Blotter $blotter)
+    public function show(Request $request, Blotter $blotter)
     {
-        if (request()->expectsJson()) {
+        if ($request->expectsJson() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'data' => $blotter->load('filedBy')
+                'data' => $blotter->load('filedBy'),
             ]);
         }
-        return view('blotters.show', compact('blotter'));
+
+        return redirect()->route('blotters.index');
     }
 
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Blotter $blotter)
+    public function edit(Request $request, Blotter $blotter)
     {
-        if (request()->expectsJson()) {
+        if ($request->expectsJson() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'data' => $blotter
+                'data' => $blotter,
             ]);
         }
-        return view('blotters.edit', compact('blotter'));
+
+        return redirect()->route('blotters.index');
     }
 
     /**
