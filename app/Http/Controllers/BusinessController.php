@@ -20,7 +20,76 @@ class BusinessController extends Controller
      */
     public function index()
     {
-        return view('businesses.index');
+        $businesses = Business::with([
+            'business_owners.resident',
+            'business_permits' => fn ($query) => $query->latest('issued_date')->latest(),
+        ])->get();
+
+        $registered = $businesses->count();
+        $active = 0;
+        $expiring = 0;
+        $expired = 0;
+        $pending = 0;
+
+        $businessOptions = [];
+        $expiringSoon = [];
+        $typeDistribution = $businesses
+            ->groupBy('business_type')
+            ->map->count()
+            ->sortDesc();
+
+        foreach ($businesses as $business) {
+            $permit = $this->currentPermit($business);
+            $status = $permit ? $this->displayPermitStatus($permit) : 'Pending';
+            $daysUntilExpiry = $permit?->expiry_date ? now()->startOfDay()->diffInDays($permit->expiry_date, false) : null;
+
+            match (true) {
+                $status === 'Expired' => $expired++,
+                $daysUntilExpiry !== null && $daysUntilExpiry >= 0 && $daysUntilExpiry <= 30 => $expiring++,
+                in_array($status, ['Approved', 'Renewed'], true) => $active++,
+                default => $pending++,
+            };
+
+            if ($daysUntilExpiry !== null && $daysUntilExpiry >= 0 && $daysUntilExpiry <= 30) {
+                $expiringSoon[] = [
+                    'business_name' => $business->business_name,
+                    'business_type' => $business->business_type,
+                    'days' => (int) $daysUntilExpiry,
+                ];
+            }
+
+            $businessOptions[] = [
+                'id' => $business->id,
+                'label' => $business->business_name . ' - ' . $this->formatOwnerName($business->business_owners->first()),
+                'business_name' => $business->business_name,
+                'permit_number' => $permit?->permit_number,
+                'can_issue' => ! $permit || ! in_array($status, ['Approved', 'Renewed'], true),
+            ];
+        }
+
+        usort($expiringSoon, fn ($a, $b) => $a['days'] <=> $b['days']);
+
+        return view('businesses.index', [
+            'permitSummary' => [
+                'registered' => $registered,
+                'active' => $active,
+                'expiring' => $expiring,
+                'expired' => $expired,
+                'pending' => $pending,
+                'active_rate' => $registered ? round(($active / $registered) * 100, 1) : 0,
+            ],
+            'businessOptions' => $businessOptions,
+            'availableOwners' => BusinessOwner::with('resident')
+                ->get()
+                ->map(fn (BusinessOwner $owner) => [
+                    'id' => $owner->id,
+                    'name' => trim(preg_replace('/\s+/', ' ', $this->formatOwnerName($owner))),
+                ])
+                ->values(),
+            'expiringSoon' => array_slice($expiringSoon, 0, 5),
+            'typeDistribution' => $typeDistribution,
+            'permitYear' => now()->year,
+        ]);
     }
 
     /**
@@ -56,8 +125,12 @@ class BusinessController extends Controller
             'status' => 'required|in:Active,Inactive,Closed',
         ]);
 
-        $totalPercentage = collect($request->ownership_percentages)
-            ->filter(fn($value) => $value !== null && $value !== '')
+        $ownerIds = $request->input('business_owner_ids', []);
+        $roles = $request->input('ownership_roles', []);
+        $percentages = $request->input('ownership_percentages', []);
+
+        $totalPercentage = collect($percentages)
+            ->filter(fn ($value) => $value !== null && $value !== '')
             ->sum();
 
         if (
@@ -74,37 +147,57 @@ class BusinessController extends Controller
             ], 422);
         }
 
-        $business = Business::create([
-            'business_name' => $validated['business_name'],
-            'business_type' => $validated['business_type'],
-            'business_address' => $validated['business_address'],
-            'date_established' => $validated['date_established'],
-            'status' => $validated['status'],
-        ]);
+        try {
+            $business = DB::transaction(function () use ($validated, $ownerIds, $roles, $percentages) {
+                $business = Business::create([
+                    'business_name' => $validated['business_name'],
+                    'business_type' => $validated['business_type'],
+                    'business_address' => $validated['business_address'],
+                    'date_established' => $validated['date_established'],
+                    'status' => $validated['status'],
+                ]);
 
-        $attachData = [];
+                $attachData = [];
 
-        foreach ($request->business_owner_ids as $index => $ownerId) {
+                foreach ($ownerIds as $index => $ownerId) {
+                    $role = $roles[$index] ?? 'Owner';
+                    if (! in_array($role, ['Owner', 'Co-owner', 'Representative'], true)) {
+                        $role = 'Owner';
+                    }
 
-            $attachData[$ownerId] = [
-                'ownership_role' => $request->ownership_roles[$index] ?? 'Owner',
-                'ownership_percentage' => $request->ownership_percentages[$index] ?? null,
-            ];
+                    $attachData[$ownerId] = [
+                        'ownership_role' => $role,
+                        'ownership_percentage' => ($percentages[$index] ?? null) !== '' ? ($percentages[$index] ?? null) : null,
+                    ];
+                }
+
+                $business->business_owners()->attach($attachData);
+
+                return $business->load('business_owners.resident');
+            });
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Business created successfully.',
+                    'business' => $business,
+                ], 201);
+            }
+
+            return redirect()
+                ->route('businesses.index')
+                ->with('success', 'Business created successfully');
+        } catch (\Throwable $e) {
+            report($e);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Failed to save business.',
+                    'error' => config('app.debug') ? $e->getMessage() : null,
+                ], 500);
+            }
+
+            return back()->withInput()->with('error', 'Failed to save business.');
         }
-
-        $business->business_owners()->attach($attachData);
-
-        if ($request->expectsJson()) {
-
-            return response()->json([
-                'message' => 'Business created successfully.',
-                'business' => $business->load('business_owners.resident'),
-            ], 201);
-        }
-
-        return redirect()
-            ->route('businesses.index')
-            ->with('success', 'Business created successfully');
     }
 
     /**
@@ -208,8 +301,12 @@ class BusinessController extends Controller
             'status' => 'required|in:Active,Inactive,Closed',
         ]);
 
-        $totalPercentage = collect($request->ownership_percentages)
-            ->filter(fn($value) => $value !== null && $value !== '')
+        $ownerIds = $request->input('business_owner_ids', []);
+        $roles = $request->input('ownership_roles', []);
+        $percentages = $request->input('ownership_percentages', []);
+
+        $totalPercentage = collect($percentages)
+            ->filter(fn ($value) => $value !== null && $value !== '')
             ->sum();
 
         if (
@@ -226,60 +323,116 @@ class BusinessController extends Controller
             ], 422);
         }
 
-        $business->update([
-            'business_name' => $validated['business_name'],
-            'business_type' => $validated['business_type'],
-            'business_address' => $validated['business_address'],
-            'date_established' => $validated['date_established'],
-            'status' => $validated['status'],
-        ]);
+        try {
+            DB::transaction(function () use ($business, $validated, $ownerIds, $roles, $percentages) {
+                $business->update([
+                    'business_name' => $validated['business_name'],
+                    'business_type' => $validated['business_type'],
+                    'business_address' => $validated['business_address'],
+                    'date_established' => $validated['date_established'],
+                    'status' => $validated['status'],
+                ]);
 
-        $syncData = [];
+                $syncData = [];
 
-        foreach ($request->business_owner_ids as $index => $ownerId) {
+                foreach ($ownerIds as $index => $ownerId) {
+                    $role = $roles[$index] ?? 'Owner';
+                    if (! in_array($role, ['Owner', 'Co-owner', 'Representative'], true)) {
+                        $role = 'Owner';
+                    }
 
-            $syncData[$ownerId] = [
-                'ownership_role' => $request->ownership_roles[$index] ?? 'Owner',
-                'ownership_percentage' => $request->ownership_percentages[$index] ?? null,
-            ];
+                    $syncData[$ownerId] = [
+                        'ownership_role' => $role,
+                        'ownership_percentage' => ($percentages[$index] ?? null) !== '' ? ($percentages[$index] ?? null) : null,
+                    ];
+                }
+
+                $business->business_owners()->sync($syncData);
+            });
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Business updated successfully.',
+                    'business' => $business->load('business_owners.resident'),
+                ]);
+            }
+
+            return redirect()
+                ->route('businesses.index')
+                ->with('success', 'Business updated successfully');
+        } catch (\Throwable $e) {
+            report($e);
+
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'message' => 'Failed to update business.',
+                    'error' => config('app.debug') ? $e->getMessage() : null,
+                ], 500);
+            }
+
+            return back()->withInput()->with('error', 'Failed to update business.');
         }
-
-        $business->business_owners()->sync($syncData);
-
-        if ($request->expectsJson()) {
-
-            return response()->json([
-                'message' => 'Business updated successfully.',
-                'business' => $business->load('business_owners.resident'),
-            ]);
-        }
-
-        return redirect()
-            ->route('businesses.index')
-            ->with('success', 'Business updated successfully');
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(Business $business)
     {
-        $business = Business::findOrFail($id);
         $business->delete();
 
         if (request()->expectsJson()) {
-            return response()->json(['message' => 'Business deleted successfully']);
+            return response()->json(['message' => 'Business permit row deleted successfully.']);
         }
-        return redirect()->route('businesses.index')->with('success', 'Business deleted successfully');
+        return redirect()->route('businesses.index')->with('success', 'Business permit row deleted successfully.');
     }
 
-    public function data()
+    public function data(Request $request)
     {
         $businesses = Business::with([
             'business_owners.resident',
             'business_permits' => fn ($query) => $query->latest('issued_date')->latest(),
             'business_permits.renewals' => fn ($query) => $query->latest('renewal_date'),
         ])->latest();
+
+        match ($request->input('status_filter')) {
+            'active' => $businesses
+                ->whereHas('business_permits', fn ($query) => $query
+                    ->whereIn('permit_status', ['Approved', 'Renewed'])
+                    ->whereDate('expiry_date', '>', now()->addDays(30)->toDateString())),
+            'expiring' => $businesses
+                ->whereHas('business_permits', fn ($query) => $query
+                    ->whereIn('permit_status', ['Approved', 'Renewed'])
+                    ->whereBetween('expiry_date', [now()->toDateString(), now()->addDays(30)->toDateString()])),
+            'expired' => $businesses
+                ->whereHas('business_permits', fn ($query) => $query
+                    ->whereNotIn('permit_status', ['Revoked', 'Suspended'])
+                    ->whereDate('expiry_date', '<', now()->toDateString())),
+            'pending' => $businesses->whereDoesntHave('business_permits'),
+            default => null,
+        };
+
+        $search = trim((string) $request->input('search.value'));
+
+        if ($search !== '') {
+            $businesses->where(function ($query) use ($search) {
+                $like = '%' . $search . '%';
+
+                $query
+                    ->where('business_name', 'like', $like)
+                    ->orWhere('business_type', 'like', $like)
+                    ->orWhere('business_address', 'like', $like)
+                    ->orWhere('status', 'like', $like)
+                    ->orWhereHas('business_permits', fn ($permitQuery) => $permitQuery
+                        ->where('permit_number', 'like', $like)
+                        ->orWhere('permit_status', 'like', $like))
+                    ->orWhereHas('business_owners', fn ($ownerQuery) => $ownerQuery
+                        ->where('first_name', 'like', $like)
+                        ->orWhere('middle_name', 'like', $like)
+                        ->orWhere('last_name', 'like', $like)
+                        ->orWhere('organization_name', 'like', $like));
+            });
+        }
 
         return DataTables::of($businesses)
             ->addColumn('owner_names', function ($business) {
@@ -317,6 +470,30 @@ class BusinessController extends Controller
             ->addColumn('permit_number', function ($business) {
                 return e($this->currentPermit($business)?->permit_number ?? 'No permit');
             })
+            ->addColumn('issued_date', function ($business) {
+                $permit = $this->currentPermit($business);
+
+                return $permit?->issued_date ? e($permit->issued_date->format('M d, Y')) : '—';
+            })
+            ->addColumn('owner_plain', function ($business) {
+                return e($this->formatOwnerName($business->business_owners->first()) ?: 'N/A');
+            })
+            ->addColumn('permit_status', function ($business) {
+                $permit = $this->currentPermit($business);
+
+                if (! $permit) {
+                    return 'Pending';
+                }
+
+                $status = $this->displayPermitStatus($permit);
+                $daysUntilExpiry = $permit->expiry_date ? now()->startOfDay()->diffInDays($permit->expiry_date, false) : null;
+
+                if (in_array($status, ['Approved', 'Renewed'], true) && $daysUntilExpiry !== null && $daysUntilExpiry >= 0 && $daysUntilExpiry <= 30) {
+                    return 'Expiring';
+                }
+
+                return $status;
+            })
             ->addColumn('permit_status_badge', function ($business) {
                 $permit = $this->currentPermit($business);
 
@@ -325,8 +502,15 @@ class BusinessController extends Controller
                 }
 
                 $status = $this->displayPermitStatus($permit);
+                $daysUntilExpiry = $permit->expiry_date ? now()->startOfDay()->diffInDays($permit->expiry_date, false) : null;
+
+                if (in_array($status, ['Approved', 'Renewed'], true) && $daysUntilExpiry !== null && $daysUntilExpiry >= 0 && $daysUntilExpiry <= 30) {
+                    $status = 'Expiring';
+                }
+
                 $class = match ($status) {
                     'Approved', 'Renewed' => 'bg-success-subtle text-success',
+                    'Expiring' => 'bg-warning-subtle text-warning',
                     'Expired' => 'bg-warning-subtle text-warning',
                     'Revoked', 'Suspended' => 'bg-danger-subtle text-danger',
                     default => 'bg-secondary-subtle text-secondary',
@@ -338,6 +522,9 @@ class BusinessController extends Controller
                 $permit = $this->currentPermit($business);
 
                 return $permit?->expiry_date ? e($permit->expiry_date->format('M d, Y')) : '—';
+            })
+            ->addColumn('current_permit_id', function ($business) {
+                return $this->currentPermit($business)?->id;
             })
             ->addColumn('action', function ($business) {
                 $permit = $this->currentPermit($business);
@@ -351,7 +538,7 @@ class BusinessController extends Controller
                     <button type="button" class="btn btn-light" title="Issue permit" data-business-action="issue" data-business-id="' . e($business->id) . '" ' . ($canIssue ? '' : 'disabled') . '><i class="bi bi-receipt"></i></button>
                     <button type="button" class="btn btn-light" title="Renew permit" data-business-action="renew" data-business-id="' . e($business->id) . '" data-permit-id="' . e($permitId ?? '') . '" ' . ($hasRenewablePermit ? '' : 'disabled') . '><i class="bi bi-arrow-clockwise"></i></button>
                     <button type="button" class="btn btn-light" title="Permit history" data-business-action="history" data-business-id="' . e($business->id) . '"><i class="bi bi-clock-history"></i></button>
-                    <button type="button" class="btn btn-light" title="Delete business" data-business-action="delete" data-business-id="' . e($business->id) . '"><i class="bi bi-trash"></i></button>
+                    <button type="button" class="btn btn-light text-danger" title="Delete row" data-business-action="delete" data-business-id="' . e($business->id) . '"><i class="bi bi-trash"></i></button>
                 </div>';
             })
             ->rawColumns(['owner_names', 'status_badge', 'permit_status_badge', 'action'])

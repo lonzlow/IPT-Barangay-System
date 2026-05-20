@@ -63,6 +63,18 @@ test('authorized user can register a business with owner data', function () {
         ->and($business->business_owners()->whereKey($owner->id)->exists())->toBeTrue();
 });
 
+test('authorized user can view the business permit dashboard', function () {
+    $user = documentUser();
+    businessWithOwner();
+
+    $this->actingAs($user)
+        ->get(route('businesses.index'))
+        ->assertOk()
+        ->assertSee('Business Permit Management')
+        ->assertSee('Issue Business Clearance')
+        ->assertSee('Renewal Tracker');
+});
+
 test('business datatable returns permit columns', function () {
     $user = documentUser();
     $business = businessWithOwner();
@@ -192,6 +204,37 @@ test('expired permits display as expired in business data', function () {
     $row = collect($response->json('data'))->firstWhere('id', $business->id);
 
     expect($row['permit_status_badge'])->toContain('Expired');
+});
+
+test('authorized user can delete a business permit table row', function () {
+    $user = documentUser();
+    $business = businessWithOwner();
+
+    BusinessPermit::create([
+        'business_id' => $business->id,
+        'permit_number' => 'BP-2026-00001',
+        'issued_date' => '2026-01-01',
+        'expiry_date' => '2026-12-31',
+        'permit_status' => 'Approved',
+        'issued_by' => $user->official_id,
+    ]);
+
+    $this->actingAs($user)
+        ->deleteJson(route('businesses.destroy', $business))
+        ->assertOk()
+        ->assertJsonPath('message', 'Business permit row deleted successfully.');
+
+    expect($business->fresh()->trashed())->toBeTrue();
+
+    $response = $this->actingAs($user)->getJson(route('businesses.data', [
+        'draw' => 1,
+        'start' => 0,
+        'length' => 10,
+    ]));
+
+    $response->assertOk();
+
+    expect(collect($response->json('data'))->firstWhere('id', $business->id))->toBeNull();
 });
 
 test('business permit routes require auth and business permission', function () {
