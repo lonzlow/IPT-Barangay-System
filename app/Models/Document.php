@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Document extends Model
@@ -15,8 +16,10 @@ class Document extends Model
     protected $fillable = [
         'resident_id',
         'document_template_id',
+        'business_id',
         'reference_number',
         'purpose',
+        'additional_notes',
         'rendered_html',
         'issued_by',
         'issued_date',
@@ -45,6 +48,11 @@ class Document extends Model
     public function template()
     {
         return $this->belongsTo(DocumentTemplate::class, 'document_template_id');
+    }
+
+    public function business(): BelongsTo
+    {
+        return $this->belongsTo(Business::class);
     }
 
     /**

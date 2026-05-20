@@ -17,56 +17,7 @@ class DocumentSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create document templates first
-        $templates = [
-            [
-                'name' => 'Barangay Clearance',
-                'description' => 'Certificate of good moral character and residency.',
-                'template_html' => '<h2>Barangay Clearance</h2><p>This certifies that [RESIDENT_NAME] is a resident of good moral character.</p>',
-                'fields_required' => ['resident_name', 'purpose', 'date_issued'],
-                'validity_days' => 365,
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Residency Certificate',
-                'description' => 'Proof of residency in the barangay.',
-                'template_html' => '<h2>Residency Certificate</h2><p>This certifies that [RESIDENT_NAME] is a bonafide resident of the barangay.</p>',
-                'fields_required' => ['resident_name', 'address', 'date_issued'],
-                'validity_days' => 730,
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Indigency Certificate',
-                'description' => 'Certificate for indigent/low-income residents.',
-                'template_html' => '<h2>Indigency Certificate</h2><p>This certifies that [RESIDENT_NAME] is an indigent resident of this barangay.</p>',
-                'fields_required' => ['resident_name', 'purpose', 'date_issued'],
-                'validity_days' => 365,
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Good Moral Certificate',
-                'description' => 'Certificate of good moral character.',
-                'template_html' => '<h2>Good Moral Character Certificate</h2><p>This certifies that [RESIDENT_NAME] has a good moral character.</p>',
-                'fields_required' => ['resident_name', 'institution', 'date_issued'],
-                'validity_days' => 365,
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Business Clearance',
-                'description' => 'Clearance for business registration.',
-                'template_html' => '<h2>Business Clearance</h2><p>This certifies that [RESIDENT_NAME] is cleared to register a business in this barangay.</p>',
-                'fields_required' => ['resident_name', 'business_name', 'date_issued'],
-                'validity_days' => 180,
-                'is_active' => true,
-            ],
-        ];
-
-        foreach ($templates as $templateData) {
-            DocumentTemplate::firstOrCreate(
-                ['name' => $templateData['name']],
-                $templateData
-            );
-        }
+        $this->call(CertificateTemplateSeeder::class);
 
         // Get active residents
         $residents = Resident::where('residency_status', 'Active')->get();

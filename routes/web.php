@@ -37,7 +37,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('reports', ReportController::class);
 
     // BUSINESS ROUTE
-    Route::resource('business', BusinessController::class);
+    Route::get('/businesses/data', [BusinessController::class, 'data'])->name('businesses.data');
+    Route::resource('businesses', BusinessController::class);
 
     // RESIDENTS ROUTE
     Route::get('/residents/data', [ResidentController::class, 'getResidents'])->name('residents.data');
@@ -48,9 +49,11 @@ Route::middleware('auth')->group(function () {
     // DOCUMENTS ROUTE
     Route::middleware('can:documents.view')->group(function () {
         Route::get('/documents/data', [DocumentController::class, 'data'])->name('documents.data');
+        Route::post('/documents/preview', [DocumentController::class, 'preview'])->name('documents.preview');
+        Route::get('/documents/residents/{resident}/businesses', [DocumentController::class, 'residentBusinesses'])->name('documents.residentBusinesses');
+        Route::get('/documents/residents/{resident}/documents', [DocumentController::class, 'getResidentDocuments'])->name('documents.getResidentDocuments');
         Route::get('/documents/{document}/download-pdf', [DocumentController::class, 'downloadPdf'])->name('documents.downloadPdf');
         Route::get('/documents/{document}/export-pdf', [DocumentController::class, 'exportPdf'])->name('documents.exportPdf');
-        Route::get('/documents/{document}/resident-documents', [DocumentController::class, 'getResidentDocuments'])->name('documents.getResidentDocuments');
         Route::resource('/documents', DocumentController::class);
     });
 

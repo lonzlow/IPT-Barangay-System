@@ -13,6 +13,8 @@ window.DataTable = DataTable;
 window.$.fn.DataTable = DataTable;
 window.axios = axios;
 
+await import('select2/dist/js/select2.full.min.js');
+
 window.Alpine = Alpine;
 
 Alpine.start();
