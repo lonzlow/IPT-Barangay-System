@@ -15,9 +15,15 @@ class BusinessPermit extends Model
     protected $fillable = [
         'business_id',
         'permit_number',
+        'issued_date',
         'expiry_date',
         'permit_status',
         'issued_by',
+    ];
+
+    protected $casts = [
+        'issued_date' => 'date',
+        'expiry_date' => 'date',
     ];
 
     public function business(): BelongsTo
@@ -26,6 +32,11 @@ class BusinessPermit extends Model
     }
 
     public function issued_by(): BelongsTo
+    {
+        return $this->belongsTo(Official::class, 'issued_by');
+    }
+
+    public function issuer(): BelongsTo
     {
         return $this->belongsTo(Official::class, 'issued_by');
     }

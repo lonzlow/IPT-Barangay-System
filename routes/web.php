@@ -53,8 +53,13 @@ Route::middleware('auth')->group(function () {
     });
 
     // BUSINESS ROUTE
-    Route::get('/businesses/data', [BusinessController::class, 'data'])->name('businesses.data');
-    Route::resource('businesses', BusinessController::class);
+    Route::middleware('can:business.view')->group(function () {
+        Route::get('/businesses/data', [BusinessController::class, 'data'])->name('businesses.data');
+        Route::get('/businesses/{business}/permits/history', [BusinessController::class, 'permitHistory'])->name('businesses.permits.history');
+        Route::post('/businesses/{business}/permits', [BusinessController::class, 'issuePermit'])->name('businesses.permits.issue');
+        Route::post('/businesses/{business}/permits/{permit}/renew', [BusinessController::class, 'renewPermit'])->name('businesses.permits.renew');
+        Route::resource('businesses', BusinessController::class);
+    });
 
     // RESIDENTS ROUTE
     Route::get('/residents/data', [ResidentController::class, 'getResidents'])->name('residents.data');

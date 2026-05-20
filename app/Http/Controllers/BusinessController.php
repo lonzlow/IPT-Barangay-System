@@ -4,8 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Business;
 use App\Models\BusinessOwner;
+use App\Models\BusinessPermit;
+use App\Models\PermitRenewal;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Yajra\DataTables\Facades\DataTables;
 
 class BusinessController extends Controller
@@ -107,7 +112,7 @@ class BusinessController extends Controller
      */
     public function show(string $id)
     {
-        $business = Business::with('business_owners.resident')->findOrFail($id);
+        $business = Business::with('business_owners.resident', 'business_permits.renewals')->findOrFail($id);
         if (request()->expectsJson()) {
             return response()->json(['success' => true, 'data' => $business]);
         }
@@ -270,7 +275,11 @@ class BusinessController extends Controller
 
     public function data()
     {
-        $businesses = Business::with('business_owners.resident')->latest();
+        $businesses = Business::with([
+            'business_owners.resident',
+            'business_permits' => fn ($query) => $query->latest('issued_date')->latest(),
+            'business_permits.renewals' => fn ($query) => $query->latest('renewal_date'),
+        ])->latest();
 
         return DataTables::of($businesses)
             ->addColumn('owner_names', function ($business) {
@@ -305,12 +314,162 @@ class BusinessController extends Controller
 
                 return '<span class="badge ' . $class . '">' . e($status) . '</span>';
             })
-            ->addColumn('action', function ($business) {
-                return '<button type="button" class="btn btn-sm btn-light" data-business-action="edit" data-business-id="' . e($business->id) . '"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-light" data-business-action="delete" data-business-id="' . e($business->id) . '"><i class="bi bi-trash"></i></button>';
+            ->addColumn('permit_number', function ($business) {
+                return e($this->currentPermit($business)?->permit_number ?? 'No permit');
             })
-            ->rawColumns(['owner_names', 'status_badge', 'action'])
+            ->addColumn('permit_status_badge', function ($business) {
+                $permit = $this->currentPermit($business);
+
+                if (! $permit) {
+                    return '<span class="badge bg-secondary-subtle text-secondary">Not issued</span>';
+                }
+
+                $status = $this->displayPermitStatus($permit);
+                $class = match ($status) {
+                    'Approved', 'Renewed' => 'bg-success-subtle text-success',
+                    'Expired' => 'bg-warning-subtle text-warning',
+                    'Revoked', 'Suspended' => 'bg-danger-subtle text-danger',
+                    default => 'bg-secondary-subtle text-secondary',
+                };
+
+                return '<span class="badge ' . $class . '">' . e($status) . '</span>';
+            })
+            ->addColumn('expiry_date', function ($business) {
+                $permit = $this->currentPermit($business);
+
+                return $permit?->expiry_date ? e($permit->expiry_date->format('M d, Y')) : '—';
+            })
+            ->addColumn('action', function ($business) {
+                $permit = $this->currentPermit($business);
+                $permitId = $permit?->id;
+                $permitStatus = $permit ? $this->displayPermitStatus($permit) : null;
+                $hasRenewablePermit = $permit && ! in_array($permitStatus, ['Revoked', 'Suspended'], true);
+                $canIssue = ! $permit || ! in_array($permitStatus, ['Approved', 'Renewed'], true);
+
+                return '<div class="btn-group btn-group-sm" role="group">
+                    <button type="button" class="btn btn-light" title="Edit business" data-business-action="edit" data-business-id="' . e($business->id) . '"><i class="bi bi-pencil"></i></button>
+                    <button type="button" class="btn btn-light" title="Issue permit" data-business-action="issue" data-business-id="' . e($business->id) . '" ' . ($canIssue ? '' : 'disabled') . '><i class="bi bi-receipt"></i></button>
+                    <button type="button" class="btn btn-light" title="Renew permit" data-business-action="renew" data-business-id="' . e($business->id) . '" data-permit-id="' . e($permitId ?? '') . '" ' . ($hasRenewablePermit ? '' : 'disabled') . '><i class="bi bi-arrow-clockwise"></i></button>
+                    <button type="button" class="btn btn-light" title="Permit history" data-business-action="history" data-business-id="' . e($business->id) . '"><i class="bi bi-clock-history"></i></button>
+                    <button type="button" class="btn btn-light" title="Delete business" data-business-action="delete" data-business-id="' . e($business->id) . '"><i class="bi bi-trash"></i></button>
+                </div>';
+            })
+            ->rawColumns(['owner_names', 'status_badge', 'permit_status_badge', 'action'])
             ->toJson();
+    }
+
+    public function issuePermit(Request $request, Business $business): JsonResponse
+    {
+        $officialId = $this->currentOfficialId();
+
+        $validated = $request->validate([
+            'issued_date' => ['nullable', 'date'],
+            'expiry_date' => ['nullable', 'date', 'after_or_equal:issued_date'],
+        ]);
+
+        $issuedDate = Carbon::parse($validated['issued_date'] ?? now()->toDateString())->startOfDay();
+        $expiryDate = isset($validated['expiry_date'])
+            ? Carbon::parse($validated['expiry_date'])->startOfDay()
+            : $this->annualExpiryFrom($issuedDate);
+
+        $activePermit = $business->business_permits()
+            ->whereIn('permit_status', ['Approved', 'Renewed'])
+            ->whereDate('expiry_date', '>=', now()->toDateString())
+            ->first();
+
+        if ($activePermit) {
+            throw ValidationException::withMessages([
+                'permit' => 'This business already has an active permit.',
+            ]);
+        }
+
+        $permit = DB::transaction(function () use ($business, $officialId, $issuedDate, $expiryDate) {
+            return BusinessPermit::create([
+                'business_id' => $business->id,
+                'permit_number' => $this->nextPermitNumber($issuedDate),
+                'issued_date' => $issuedDate->toDateString(),
+                'expiry_date' => $expiryDate->toDateString(),
+                'permit_status' => 'Approved',
+                'issued_by' => $officialId,
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Business permit issued successfully.',
+            'permit' => $this->formatPermit($permit->load('renewals')),
+        ], 201);
+    }
+
+    public function renewPermit(Request $request, Business $business, BusinessPermit $permit): JsonResponse
+    {
+        if ($permit->business_id !== $business->id) {
+            abort(404);
+        }
+
+        if (in_array($permit->permit_status, ['Revoked', 'Suspended'], true)) {
+            throw ValidationException::withMessages([
+                'permit' => 'Revoked or suspended permits cannot be renewed.',
+            ]);
+        }
+
+        $officialId = $this->currentOfficialId();
+
+        $validated = $request->validate([
+            'renewal_date' => ['nullable', 'date'],
+            'new_expiry_date' => ['nullable', 'date', 'after_or_equal:renewal_date'],
+            'fee_paid' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $renewalDate = Carbon::parse($validated['renewal_date'] ?? now()->toDateString())->startOfDay();
+        $newExpiryDate = isset($validated['new_expiry_date'])
+            ? Carbon::parse($validated['new_expiry_date'])->startOfDay()
+            : $this->annualExpiryFrom($renewalDate);
+
+        $renewal = DB::transaction(function () use ($permit, $officialId, $validated, $renewalDate, $newExpiryDate) {
+            $renewal = PermitRenewal::create([
+                'permit_id' => $permit->id,
+                'fee_paid' => $validated['fee_paid'],
+                'renewal_date' => $renewalDate->toDateString(),
+                'new_expiry_date' => $newExpiryDate->toDateString(),
+                'processed_by' => $officialId,
+            ]);
+
+            $permit->update([
+                'expiry_date' => $newExpiryDate->toDateString(),
+                'permit_status' => 'Renewed',
+            ]);
+
+            return $renewal;
+        });
+
+        return response()->json([
+            'message' => 'Business permit renewed successfully.',
+            'renewal' => [
+                'id' => $renewal->id,
+                'fee_paid' => number_format((float) $renewal->fee_paid, 2, '.', ''),
+                'renewal_date' => $renewal->renewal_date->format('Y-m-d'),
+                'new_expiry_date' => $renewal->new_expiry_date?->format('Y-m-d'),
+            ],
+            'permit' => $this->formatPermit($permit->fresh('renewals')),
+        ]);
+    }
+
+    public function permitHistory(Business $business): JsonResponse
+    {
+        $business->load([
+            'business_permits' => fn ($query) => $query->latest('issued_date')->latest(),
+            'business_permits.renewals' => fn ($query) => $query->latest('renewal_date'),
+            'business_permits.issuer.resident',
+            'business_permits.renewals.processor.resident',
+        ]);
+
+        return response()->json([
+            'business' => [
+                'id' => $business->id,
+                'business_name' => $business->business_name,
+            ],
+            'permits' => $business->business_permits->map(fn (BusinessPermit $permit) => $this->formatPermit($permit)),
+        ]);
     }
 
     private function upsertOwnerFromName(Business $business, string $ownerName): BusinessOwner
@@ -372,5 +531,86 @@ class BusinessController extends Controller
         }
 
         return $owner->organization_name ?: trim($owner->first_name . ' ' . $owner->middle_name . ' ' . $owner->last_name . ' ' . $owner->suffix);
+    }
+
+    private function currentOfficialId(): string
+    {
+        $officialId = request()->user()?->official_id;
+
+        if (! $officialId) {
+            throw ValidationException::withMessages([
+                'issued_by' => 'Your user account must be linked to an official before processing business permits.',
+            ]);
+        }
+
+        return $officialId;
+    }
+
+    private function annualExpiryFrom(Carbon $date): Carbon
+    {
+        return $date->copy()->addYear()->subDay();
+    }
+
+    private function nextPermitNumber(Carbon $issuedDate): string
+    {
+        $year = $issuedDate->format('Y');
+        $latest = BusinessPermit::query()
+            ->where('permit_number', 'like', "BP-{$year}-%")
+            ->orderByDesc('permit_number')
+            ->value('permit_number');
+
+        $sequence = $latest ? ((int) substr($latest, -5)) + 1 : 1;
+
+        return sprintf('BP-%s-%05d', $year, $sequence);
+    }
+
+    private function currentPermit(Business $business): ?BusinessPermit
+    {
+        return $business->business_permits
+            ->sortByDesc(fn (BusinessPermit $permit) => $permit->issued_date?->timestamp ?? $permit->created_at?->timestamp ?? 0)
+            ->first();
+    }
+
+    private function displayPermitStatus(BusinessPermit $permit): string
+    {
+        if (! in_array($permit->permit_status, ['Revoked', 'Suspended'], true) && $permit->expiry_date?->lt(now()->startOfDay())) {
+            return 'Expired';
+        }
+
+        return $permit->permit_status;
+    }
+
+    private function formatPermit(BusinessPermit $permit): array
+    {
+        return [
+            'id' => $permit->id,
+            'permit_number' => $permit->permit_number,
+            'issued_date' => $permit->issued_date?->format('Y-m-d'),
+            'expiry_date' => $permit->expiry_date?->format('Y-m-d'),
+            'permit_status' => $permit->permit_status,
+            'display_status' => $this->displayPermitStatus($permit),
+            'issued_by' => $this->formatOfficialName($permit->issuer),
+            'renewals' => $permit->renewals->map(fn (PermitRenewal $renewal) => [
+                'id' => $renewal->id,
+                'fee_paid' => number_format((float) $renewal->fee_paid, 2, '.', ''),
+                'renewal_date' => $renewal->renewal_date?->format('Y-m-d'),
+                'new_expiry_date' => $renewal->new_expiry_date?->format('Y-m-d'),
+                'processed_by' => $this->formatOfficialName($renewal->processor),
+            ])->values(),
+        ];
+    }
+
+    private function formatOfficialName($official): string
+    {
+        if (! $official?->resident) {
+            return 'N/A';
+        }
+
+        return trim(preg_replace('/\s+/', ' ', implode(' ', [
+            $official->resident->first_name,
+            $official->resident->middle_name,
+            $official->resident->last_name,
+            $official->resident->suffix,
+        ])));
     }
 }

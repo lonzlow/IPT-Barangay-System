@@ -19,12 +19,23 @@ class PermitRenewal extends Model
         'processed_by',
     ];
 
+    protected $casts = [
+        'fee_paid' => 'decimal:2',
+        'renewal_date' => 'date',
+        'new_expiry_date' => 'date',
+    ];
+
     public function business_permit(): BelongsTo
     {
         return $this->belongsTo(BusinessPermit::class, 'permit_id');
     }
 
     public function processed_by(): BelongsTo
+    {
+        return $this->belongsTo(Official::class, 'processed_by');
+    }
+
+    public function processor(): BelongsTo
     {
         return $this->belongsTo(Official::class, 'processed_by');
     }
