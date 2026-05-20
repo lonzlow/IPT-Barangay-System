@@ -17,7 +17,25 @@ class ResidentController extends Controller
      */
     public function index()
     {
-        return view('residents.index');
+        $totalResidents = Resident::count();
+
+        $activeCount = Resident::where('residency_status', 'Active')->count();
+        $deceasedCount = Resident::where('residency_status', 'Deceased')->count();
+        $transferredCount = Resident::where('residency_status', 'Transferred')->count();
+
+        $activePercentage = $totalResidents > 0 ? number_format(($activeCount / $totalResidents) * 100, 1) : 0;
+        $deceasedPercentage = $totalResidents > 0 ? number_format(($deceasedCount / $totalResidents) * 100, 1) : 0;
+        $transferredPercentage = $totalResidents > 0 ? number_format(($transferredCount / $totalResidents) * 100, 1) : 0;
+
+        return view('residents.index', compact(
+            'totalResidents',
+            'activeCount',
+            'deceasedCount',
+            'transferredCount',
+            'activePercentage',
+            'deceasedPercentage',
+            'transferredPercentage'
+        ));
     }
 
     /**
@@ -43,7 +61,7 @@ class ResidentController extends Controller
             'email' => ['required', 'email', 'max:255', 'unique:residents,email'],
             'contact_number' => ['required', 'string', 'max:255'],
             'birthdate' => ['required', 'date'],
-            'gender' => ['required', Rule::in(['Male', 'Female', 'Other'])],
+            'gender' => ['required', Rule::in(['Male', 'Female'])],
             'civil_status' => ['required', Rule::in(['Single', 'Married', 'Widowed', 'Separated', 'Divorced'])],
             'voter_status' => ['required', Rule::in(['Registered', 'Unregistered', 'Suspended'])],
             'residency_status' => ['required', Rule::in(['Active', 'Deceased', 'Transferred'])],
@@ -91,7 +109,7 @@ class ResidentController extends Controller
             'email' => ['required', 'email', 'max:255', Rule::unique('residents', 'email')->ignore($resident->id)],
             'contact_number' => ['required', 'string', 'max:255'],
             'birthdate' => ['required', 'date'],
-            'gender' => ['required', Rule::in(['Male', 'Female', 'Other'])],
+            'gender' => ['required', Rule::in(['Male', 'Female'])],
             'civil_status' => ['required', Rule::in(['Single', 'Married', 'Widowed', 'Separated', 'Divorced'])],
             'voter_status' => ['required', Rule::in(['Registered', 'Unregistered', 'Suspended'])],
             'residency_status' => ['required', Rule::in(['Active', 'Deceased', 'Transferred'])],
@@ -141,20 +159,20 @@ class ResidentController extends Controller
 
         // Age range filter
         if ($request->has('age_from') && $request->input('age_from')) {
-            $ageFrom = (int)$request->input('age_from');
+            $ageFrom = (int) $request->input('age_from');
             $residents->whereRaw("YEAR(CURDATE()) - YEAR(birthdate) >= ?", [$ageFrom]);
         }
 
         if ($request->has('age_to') && $request->input('age_to')) {
-            $ageTo = (int)$request->input('age_to');
+            $ageTo = (int) $request->input('age_to');
             $residents->whereRaw("YEAR(CURDATE()) - YEAR(birthdate) <= ?", [$ageTo]);
         }
 
         return DataTables::of($residents)
-            ->addColumn('age', function($resident) {
+            ->addColumn('age', function ($resident) {
                 return $resident->age ?? 'N/A';
             })
-            ->addColumn('household_purok', function($resident) {
+            ->addColumn('household_purok', function ($resident) {
                 $household = $resident->household
                     ? $resident->household->house_number . ' ' . $resident->household->street . ' - '
                     : 'N/A -';
@@ -187,13 +205,13 @@ class ResidentController extends Controller
             })
             ->addColumn('action', function ($resident) {
                 return '<div class="d-flex gap-1">
-                    <a href="'.route('residents.edit', $resident->id).'" class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Edit">
+                    <a href="' . route('residents.edit', $resident->id) . '" class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Edit">
                         <i class="bi bi-pencil" style="font-size:13px;"></i>
                     </a>
-                    <a href="'.route('residents.edit', ['resident' => $resident->id, 'section' => 'status']).'" class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Update Status">
+                    <a href="' . route('residents.edit', ['resident' => $resident->id, 'section' => 'status']) . '" class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Update Status">
                         <i class="bi bi-shield-fill" style="font-size:13px;"></i>
                     </a>
-                    <a href="'.route('residents.edit', ['resident' => $resident->id, 'section' => 'deactivate']).'" class="btn btn-sm btn-light text-danger" style="border-radius:6px;padding:3px 8px;" title="Deactivate">
+                    <a href="' . route('residents.edit', ['resident' => $resident->id, 'section' => 'deactivate']) . '" class="btn btn-sm btn-light text-danger" style="border-radius:6px;padding:3px 8px;" title="Deactivate">
                         <i class="bi bi-person-x-fill" style="font-size:13px;"></i>
                     </a>
                 </div>';
