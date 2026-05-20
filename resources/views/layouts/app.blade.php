@@ -252,20 +252,52 @@
 
     <div class="sidebar-footer">
         @php
-            $user = auth()->user();
-            $displayName = trim(($user->first_name ?? '').' '.($user->last_name ?? ''));
-            $initials = collect([
-                $user->first_name ?? '',
-                $user->last_name ?? '',
-            ])->filter()->map(fn ($part) => strtoupper(substr($part, 0, 1)))->implode('');
-        @endphp
-        <div class="d-flex align-items-center gap-2">
-            <div class="avatar">{{ $initials ?: 'U' }}</div>
-            <div>
-                <div style="font-size:12px;font-weight:600;color:#cbd5e1;">{{ $displayName ?: 'User' }}</div>
-                <div style="font-size:11px;color:#475569;">{{ $user?->role?->role_name ?? 'Authenticated User' }}</div>
-            </div>
+    // Kukuha tayo direkta sa Auth session ng Laravel
+    $currentUser = auth()->user();
+
+    // 1. TRAVERSE SA TATLONG TABLES PARA MAKUHA ANG PANGALAN: User -> Official -> Resident
+    $residentProfile = $currentUser?->official?->resident;
+
+    if ($residentProfile) {
+        $firstName = $residentProfile->first_name;
+        $lastName = $residentProfile->last_name;
+        $fullName = trim($firstName . ' ' . $lastName);
+    } else {
+        // Fallback placeholder kapag walang nakatali na Resident record (gaya ng default admin account mo)
+        $fullName = $currentUser?->name ?: 'System Administrator';
+    }
+
+    // 2. GENERATE INITIALS (Juan Dela Cruz -> JD o System Administrator -> SA)
+    $words = explode(' ', preg_replace('/\s+/', ' ', trim($fullName)));
+    $initials = '';
+    
+    if (count($words) >= 2) {
+        $initials = strtoupper(substr($words[0], 0, 1) . substr(end($words), 0, 1));
+    } elseif (count($words) == 1 && !empty($words[0])) {
+        $initials = strtoupper(substr($words[0], 0, 2));
+    } else {
+        $initials = 'SA'; // Default System Admin Initial
+    }
+
+    // 3. TRAVERSE PARA MAKUHA ANG ROLE NAME: User -> Official -> Role
+    $roleName = $currentUser?->official?->role?->role_name ?? 'Authenticated User';
+@endphp
+
+<div class="d-flex align-items-center gap-2 px-3 py-2">
+    <div class="avatar flex items-center justify-center bg-blue-600 text-white font-bold rounded-full uppercase shrink-0" 
+         style="width: 40px; height: 40px; font-size: 14px; letter-spacing: 0.05em; min-width: 40px;">
+        {{ $initials }}
+    </div>
+    
+    <div class="min-w-0 flex-1">
+        <div class="truncate" style="font-size:13px; font-weight:600; color:#cbd5e1; line-height: 1.2;">
+            {{ $fullName }}
         </div>
+        <div class="truncate" style="font-size:11px; color:#475569; margin-top: 3px;">
+            {{ $roleName }}
+        </div>
+    </div>
+</div>
         <form method="POST" action="{{ route('logout') }}">
             @csrf
             <button type="submit" class="logout-btn">
@@ -277,6 +309,30 @@
 </nav>
 
 {{-- ── TOPBAR ── --}}
+@php
+    $currentUser = auth()->user();
+    $residentProfile = $currentUser?->official?->resident;
+
+    if ($residentProfile) {
+        $firstName = $residentProfile->first_name;
+        $lastName = $residentProfile->last_name;
+        $fullName = trim($firstName . ' ' . $lastName);
+    } else {
+        $fullName = $currentUser?->name ?: 'System Administrator';
+    }
+
+    $words = explode(' ', preg_replace('/\s+/', ' ', trim($fullName)));
+    $initials = '';
+    
+    if (count($words) >= 2) {
+        $initials = strtoupper(substr($words[0], 0, 1) . substr(end($words), 0, 1));
+    } elseif (count($words) == 1 && !empty($words[0])) {
+        $initials = strtoupper(substr($words[0], 0, 2));
+    } else {
+        $initials = 'SA';
+    }
+@endphp
+
 <header id="topbar">
     <button class="btn-icon d-lg-none" id="sidebarToggle" style="border:none;">
         <i class="bi bi-list" style="font-size:20px;"></i>
@@ -292,7 +348,11 @@
     <div class="topbar-actions ms-auto">
         <button class="btn-icon" title="Notifications"><i class="bi bi-bell"></i></button>
         <button class="btn-icon" title="Help"><i class="bi bi-question-circle"></i></button>
-        <div class="avatar" title="Admin Barangay">AB</div>
+        <div class="avatar flex items-center justify-center bg-blue-600 text-white font-bold rounded-full uppercase" 
+             style="width: 36px; height: 36px; font-size: 13px; letter-spacing: 0.05em;"
+             title="{{ $fullName }}">
+            {{ $initials }}
+        </div>
     </div>
 </header>
 
