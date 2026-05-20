@@ -124,16 +124,16 @@
                                 @foreach($householdsByPurok as $stat)
                                     <tr>
                                         <td style="padding:12px;">
-                                            <strong>{{ $stat->purok?->purok_name ?? 'Unknown' }}</strong>
+                                            <strong>{{ $stat->purok_name }}</strong>
                                         </td>
                                         <td style="padding:12px;text-align:center;">
                                             <span class="badge" style="background-color:#e0e7ff;color:#1a56db;">
-                                                {{ $stat->count }}
+                                                {{ $stat->households_count }}
                                             </span>
                                         </td>
                                         <td style="padding:12px;text-align:center;">
                                             <span class="badge" style="background-color:#dcfce7;color:#166534;">
-                                                {{ $stat->total_residents }}
+                                                {{ $stat->residents_count }}
                                             </span>
                                         </td>
                                     </tr>
@@ -165,14 +165,14 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($votersByPurok as $voter)
+                                @forelse($householdsByPurok as $purok)
                                     <tr>
                                         <td style="padding:12px;">
-                                            <strong>{{ optional(\App\Models\Household::find($voter->purok_id)?->purok)->purok_name ?? 'Unknown Purok' }}</strong>
+                                            <strong>{{ $purok->purok_name }}</strong>
                                         </td>
                                         <td style="padding:12px;text-align:center;">
                                             <span class="badge" style="background-color:#fef3c7;color:#b45309;">
-                                                {{ $voter->voter_count }}
+                                                {{ $purok->registered_voters_count }}
                                             </span>
                                         </td>
                                     </tr>

@@ -43,7 +43,9 @@
                         <select name="document_template_id" class="form-select" id="templateSelect" style="border-radius:8px;font-size:13px;" required>
                             <option value="">-- Select Document Type --</option>
                             @foreach($templates as $template)
-                                <option value="{{ $template->id }}" data-description="{{ $template->description }}">
+                                <option value="{{ $template->id }}"
+                                    data-description="{{ $template->description }}"
+                                    data-business="{{ str_contains(strtolower($template->name), 'business') ? '1' : '0' }}">
                                     {{ $template->name }}
                                 </option>
                             @endforeach
@@ -90,6 +92,29 @@
                         <input type="text" name="issued_by" class="form-control" style="border-radius:8px;font-size:13px;" 
                                value="{{ $defaultIssuer }}" required>
                         <small class="text-danger d-none" id="issued_by-error"></small>
+                    </div>
+
+                    <input type="hidden" name="issued_by_official_id" id="issuedByOfficialId" value="">
+
+                    {{-- Signature Selection (optional) --}}
+                    <div class="mb-3">
+                        <label class="form-label fw-600" style="font-size:13px;color:#1e293b;">
+                            <i class="bi bi-signature"></i> Signature (Optional)
+                        </label>
+                        <select name="signature_id" class="form-select" id="signatureSelect" style="border-radius:8px;font-size:13px;">
+                            <option value="">-- Select Signature (optional) --</option>
+                            @isset($signatures)
+                                @foreach($signatures as $sig)
+                                    @php
+                                        $off = $sig->official?->resident;
+                                        $label = $sig->label ? $sig->label . ' - ' : '';
+                                        $display = $label . ($off ? trim($off->first_name . ' ' . $off->last_name) : 'Official');
+                                    @endphp
+                                    <option value="{{ $sig->id }}" data-official-id="{{ $sig->official_id }}">{{ $display }}</option>
+                                @endforeach
+                            @endisset
+                        </select>
+                        <small class="text-danger d-none" id="signature_id-error"></small>
                     </div>
 
                     {{-- Status (Edit Only) --}}

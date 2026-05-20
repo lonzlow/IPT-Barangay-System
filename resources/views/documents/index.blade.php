@@ -99,6 +99,10 @@
         </div>
     </div>
 
+    @include('documents.partials.signatures-panel')
+
+    @include('documents.partials.audit-panel')
+
     <div class="table-card mb-4">
         <div class="table-header">
             <span class="heading">Recent Documents Issued</span>
@@ -248,7 +252,7 @@
             function initSelect2() {
                 if (typeof $.fn.select2 !== 'function') return;
 
-                $('#residentSelect, #templateSelect, #businessSelect').select2({
+                $('#residentSelect, #templateSelect, #businessSelect, #signatureSelect').select2({
                     width: '100%',
                     dropdownParent: $('#documentFormModal'),
                     allowClear: true,
@@ -342,8 +346,16 @@
                 setSelect2Value('#residentSelect', '');
                 setSelect2Value('#templateSelect', templateId || '');
                 setSelect2Value('#businessSelect', '');
+                setSelect2Value('#signatureSelect', '');
+                document.getElementById('issuedByOfficialId').value = '';
                 syncBusinessGroup();
                 modal.show();
+            }
+
+            function syncSignatureOfficial() {
+                const option = document.querySelector('#signatureSelect option:checked');
+                const officialId = option?.dataset?.officialId || '';
+                document.getElementById('issuedByOfficialId').value = officialId;
             }
 
             function openEditModal(documentId) {
@@ -366,6 +378,11 @@
 
                     setSelect2Value('#residentSelect', doc.resident_id || '');
                     setSelect2Value('#templateSelect', doc.document_template_id || '');
+                    setSelect2Value('#signatureSelect', doc.signature_id || '');
+                    syncSignatureOfficial();
+                    if (doc.issued_by_official_id) {
+                        document.getElementById('issuedByOfficialId').value = doc.issued_by_official_id;
+                    }
                     await syncBusinessGroup();
                     modal.show();
                 }).catch(() => showAlert('Error loading document details', 'danger'));
@@ -376,7 +393,8 @@
 
                 axios.delete(`/documents/${documentId}`).then(response => {
                     showAlert(response.data.message);
-                    documentsTable.ajax.reload();
+                    documentsTable?.ajax?.reload();
+                    refreshAuditLogs();
                 }).catch(error => {
                     showAlert(error.response?.data?.message || 'An error occurred', 'danger');
                 });
@@ -415,36 +433,50 @@
                 modal = new bootstrap.Modal(document.getElementById('documentFormModal'));
                 initSelect2();
 
-                documentsTable = $('#documentsTable').DataTable({
-                    processing: true,
-                    serverSide: true,
-                    ajax: {
-                        url: '{{ route("documents.data") }}',
-                        data: data => {
-                            data.resident_id = $('#residentFilterSelect').val();
-                            data.document_template_id = $('#templateFilterSelect').val();
-                        },
-                        dataSrc: 'data',
-                    },
-                    columns: [
-                        { data: 'reference_number', name: 'reference_number' },
-                        { data: 'resident_name', name: 'resident.first_name' },
-                        { data: 'template_name', name: 'template.name' },
-                        { data: 'issued_date_formatted', name: 'issued_date' },
-                        { data: 'valid_until_formatted', name: 'valid_until' },
-                        { data: 'status_badge', name: 'status', orderable: false, searchable: false },
-                        { data: 'action', name: 'action', orderable: false, searchable: false },
-                    ],
-                    order: [[3, 'desc']],
-                    pageLength: 10,
-                    responsive: true,
-                });
+                function reloadDocumentsTable() {
+                    documentsTable?.ajax?.reload();
+                }
 
-                $('#residentFilterSelect, #templateFilterSelect').on('change', () => documentsTable.ajax.reload());
+                function initDocumentsTable() {
+                    if (typeof $.fn.DataTable !== 'function') {
+                        console.error('DataTables did not load; document issuance remains available.');
+                        return;
+                    }
+
+                    try {
+                        documentsTable = $('#documentsTable').DataTable({
+                            processing: true,
+                            serverSide: true,
+                            ajax: {
+                                url: '{{ route("documents.data") }}',
+                                data: data => {
+                                    data.resident_id = $('#residentFilterSelect').val();
+                                    data.document_template_id = $('#templateFilterSelect').val();
+                                },
+                                dataSrc: 'data',
+                            },
+                            columns: [
+                                { data: 'reference_number', name: 'reference_number' },
+                                { data: 'resident_name', name: 'resident.first_name' },
+                                { data: 'template_name', name: 'template.name' },
+                                { data: 'issued_date_formatted', name: 'issued_date' },
+                                { data: 'valid_until_formatted', name: 'valid_until' },
+                                { data: 'status_badge', name: 'status', orderable: false, searchable: false },
+                                { data: 'action', name: 'action', orderable: false, searchable: false },
+                            ],
+                            order: [[3, 'desc']],
+                            pageLength: 10,
+                        });
+                    } catch (error) {
+                        console.error('Failed to initialize documents table', error);
+                    }
+                }
+
+                $('#residentFilterSelect, #templateFilterSelect').on('change', reloadDocumentsTable);
                 $('#clearDocumentFilters').on('click', function () {
                     setSelect2Value('#residentFilterSelect', '');
                     setSelect2Value('#templateFilterSelect', '');
-                    documentsTable.ajax.reload();
+                    reloadDocumentsTable();
                 });
 
                 $('.doc-shortcut').on('click', function () {
@@ -455,6 +487,8 @@
                     selectedBusinessId = $('#businessSelect').val();
                     syncBusinessGroup();
                 });
+
+                $('#signatureSelect').on('change', syncSignatureOfficial);
 
                 $('#quickResidentSelect, #quickTemplateSelect').on('change', syncQuickBusinessGroup);
                 $('#quickGenerateBtn').on('click', generatePreviewFromQuickForm);
@@ -477,7 +511,139 @@
                     win.print();
                 });
 
-                submitFormBtn.addEventListener('click', function (event) {
+                @can('signatures.manage')
+                const signatureForm = document.getElementById('signatureForm');
+                const signatureUploadForm = document.getElementById('signatureUploadForm');
+                const toggleSignatureForm = document.getElementById('toggleSignatureForm');
+
+                if (toggleSignatureForm && signatureUploadForm) {
+                    toggleSignatureForm.addEventListener('click', () => {
+                        signatureUploadForm.classList.toggle('d-none');
+                    });
+                }
+
+                function appendSignatureCard(sig) {
+                    const empty = document.getElementById('signaturesEmpty');
+                    if (empty) empty.remove();
+
+                    const name = sig.official?.resident
+                        ? `${sig.official.resident.first_name} ${sig.official.resident.last_name}`.trim()
+                        : 'Official';
+                    const imgUrl = sig.url || `/storage/${sig.path}`;
+                    const labelHtml = sig.label ? `<div style="font-size:11px;color:#64748b;">${sig.label}</div>` : '';
+
+                    const col = document.createElement('div');
+                    col.className = 'col-6 col-md-4 col-lg-3';
+                    col.dataset.signatureId = sig.id;
+                    col.innerHTML = `
+                        <div class="border rounded p-2 h-100" style="background:#fff;">
+                            <div class="text-center mb-2" style="height:72px;display:flex;align-items:center;justify-content:center;">
+                                <img src="${imgUrl}" alt="${name}" style="max-height:68px;max-width:100%;object-fit:contain;">
+                            </div>
+                            <div style="font-size:12px;font-weight:700;color:#0f172a;">${name}</div>
+                            ${labelHtml}
+                            <button type="button" class="btn btn-sm btn-outline-danger w-100 mt-2 delete-signature-btn"
+                                data-signature-id="${sig.id}" style="border-radius:6px;font-size:11px;">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        </div>`;
+                    document.getElementById('signaturesGrid').prepend(col);
+                    bindDeleteSignatureButtons();
+                    appendSignatureSelectOption(sig, name);
+                }
+
+                function appendSignatureSelectOption(sig, name) {
+                    const label = sig.label ? `${sig.label} - ${name}` : name;
+                    const select = document.querySelector('#signatureSelect');
+                    if (!select || select.querySelector(`option[value="${sig.id}"]`)) return;
+                    const opt = new Option(label, sig.id);
+                    opt.dataset.officialId = sig.official_id;
+                    select.add(opt);
+                    $(select).trigger('change.select2');
+                }
+
+                function removeSignatureCard(signatureId) {
+                    document.querySelector(`[data-signature-id="${signatureId}"]`)?.remove();
+                    document.querySelector(`#signatureSelect option[value="${signatureId}"]`)?.remove();
+                }
+
+                function bindDeleteSignatureButtons() {
+                    document.querySelectorAll('.delete-signature-btn').forEach(btn => {
+                        btn.onclick = async function () {
+                            const id = this.dataset.signatureId;
+                            if (!confirm('Delete this signature image?')) return;
+                            try {
+                                await axios.delete(`/signatures/${id}`);
+                                removeSignatureCard(id);
+                                showAlert('Signature deleted');
+                            } catch (error) {
+                                showAlert(error.response?.data?.message || 'Unable to delete signature', 'danger');
+                            }
+                        };
+                    });
+                }
+
+                bindDeleteSignatureButtons();
+
+                if (signatureForm) {
+                    signatureForm.addEventListener('submit', async function (event) {
+                        event.preventDefault();
+                        const formData = new FormData(signatureForm);
+                        const btn = document.getElementById('signatureUploadBtn');
+                        btn.disabled = true;
+                        try {
+                            const response = await axios.post('{{ route("signatures.store") }}', formData, {
+                                headers: { 'Content-Type': 'multipart/form-data' },
+                            });
+                            const sig = response.data.signature;
+                            sig.url = `/storage/${sig.path}`;
+                            appendSignatureCard(sig);
+                            setSelect2Value('#signatureSelect', sig.id);
+                            syncSignatureOfficial();
+                            signatureForm.reset();
+                            signatureUploadForm.classList.add('d-none');
+                            showAlert(response.data.message || 'Signature uploaded');
+                        } catch (error) {
+                            const msg = error.response?.data?.message
+                                || Object.values(error.response?.data?.errors || {})[0]?.[0]
+                                || 'Upload failed';
+                            showAlert(msg, 'danger');
+                        } finally {
+                            btn.disabled = false;
+                        }
+                    });
+                }
+                @endcan
+
+                function renderAuditLogs(logs) {
+                    const body = document.getElementById('auditLogsBody');
+                    if (!body) return;
+                    if (!logs.length) {
+                        body.innerHTML = '<tr><td colspan="4" class="text-muted text-center py-4">No issuance activity recorded yet.</td></tr>';
+                        return;
+                    }
+                    body.innerHTML = logs.map(log => `
+                        <tr>
+                            <td><span class="badge bg-light text-dark border">${log.action}</span></td>
+                            <td style="max-width:320px;">${log.description || '—'}</td>
+                            <td>${log.user}</td>
+                            <td title="${log.created_at}">${log.created_at_human}</td>
+                        </tr>
+                    `).join('');
+                }
+
+                async function refreshAuditLogs() {
+                    try {
+                        const response = await axios.get('{{ route("documents.auditLogs") }}');
+                        renderAuditLogs(response.data);
+                    } catch (error) {
+                        console.error('Failed to load audit logs', error);
+                    }
+                }
+
+                document.getElementById('refreshAuditLogs')?.addEventListener('click', refreshAuditLogs);
+
+                function submitDocumentForm(event) {
                     event.preventDefault();
                     clearFormErrors();
 
@@ -486,7 +652,12 @@
                         return;
                     }
 
-                    const params = new URLSearchParams(new FormData(documentForm));
+                    const params = new URLSearchParams();
+                    for (const [key, value] of new FormData(documentForm).entries()) {
+                        if (value !== '') {
+                            params.append(key, value);
+                        }
+                    }
                     let url = '/documents';
 
                     if (editingDocumentId) {
@@ -500,7 +671,8 @@
                     axios.post(url, params).then(response => {
                         showAlert(response.data.message);
                         modal.hide();
-                        documentsTable.ajax.reload();
+                        reloadDocumentsTable();
+                        refreshAuditLogs();
                     }).catch(error => {
                         if (error.response?.status === 422) {
                             Object.entries(error.response.data.errors || {}).forEach(([field, messages]) => {
@@ -518,7 +690,12 @@
                         document.getElementById('formLoading').classList.add('d-none');
                         submitFormBtn.disabled = false;
                     });
-                });
+                }
+
+                submitFormBtn.addEventListener('click', submitDocumentForm);
+                documentForm.addEventListener('submit', submitDocumentForm);
+
+                initDocumentsTable();
             });
         });
     </script>

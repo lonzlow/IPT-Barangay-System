@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ActivityLog;
 use App\Models\Business;
 use App\Models\Document;
 use App\Models\DocumentTemplate;
+use App\Models\Official;
 use App\Models\Resident;
+use App\Models\Signature;
+use App\Support\LogsDocumentActivity;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,12 +19,27 @@ use Yajra\DataTables\Facades\DataTables;
 
 class DocumentController extends Controller
 {
+    use LogsDocumentActivity;
+
     public function index()
     {
         $templates = DocumentTemplate::where('is_active', true)->orderBy('name')->get();
         $residents = Resident::with('household.purok')
             ->where('residency_status', 'Active')
             ->orderBy('last_name')
+            ->get();
+
+        $signatures = Signature::with('official.resident')->latest()->get();
+
+        $officials = Official::with(['resident', 'role'])
+            ->where('is_active', true)
+            ->get()
+            ->sortBy(fn ($o) => $o->resident?->last_name);
+
+        $auditLogs = ActivityLog::with('user')
+            ->where('module', 'Document Issuance')
+            ->latest()
+            ->limit(20)
             ->get();
 
         $monthStart = now()->startOfMonth();
@@ -38,15 +57,45 @@ class DocumentController extends Controller
             ->groupBy('document_template_id')
             ->pluck('total', 'document_template_id');
 
-        return view('documents.index', compact('templates', 'residents', 'stats', 'templateStats'));
+        return view('documents.index', compact(
+            'templates',
+            'residents',
+            'stats',
+            'templateStats',
+            'signatures',
+            'officials',
+            'auditLogs',
+        ));
+    }
+
+    public function auditLogs(): JsonResponse
+    {
+        $this->authorize('documents.view');
+
+        $logs = ActivityLog::with('user')
+            ->where('module', 'Document Issuance')
+            ->latest()
+            ->limit(50)
+            ->get()
+            ->map(fn ($log) => [
+                'id' => $log->id,
+                'action' => $log->action,
+                'description' => $log->description,
+                'user' => $log->user?->email ?? 'System',
+                'created_at' => $log->created_at->format('M d, Y g:i A'),
+                'created_at_human' => $log->created_at->diffForHumans(),
+            ]);
+
+        return response()->json($logs->values()->all());
     }
 
     public function create()
     {
         $residents = Resident::where('residency_status', 'Active')->orderBy('last_name')->get();
         $templates = DocumentTemplate::where('is_active', true)->orderBy('name')->get();
+        $signatures = Signature::with('official.resident')->get();
 
-        return view('documents.create', compact('residents', 'templates'));
+        return view('documents.create', compact('residents', 'templates', 'signatures'));
     }
 
     public function store(Request $request)
@@ -59,12 +108,18 @@ class DocumentController extends Controller
         $issuedDate = now();
         $validUntil = $this->validUntil($template, $issuedDate);
 
+        $signature = isset($validated['signature_id']) ? Signature::find($validated['signature_id']) : null;
+        if ($signature && empty($validated['issued_by_official_id'])) {
+            $validated['issued_by_official_id'] = $signature->official_id;
+        }
+
         $renderedHtml = $template->render($resident, [
             'reference_number' => $referenceNumber,
             'purpose' => $validated['purpose'] ?? null,
             'additional_notes' => $validated['additional_notes'] ?? null,
             'issued_by' => $validated['issued_by'],
             'issued_date' => $issuedDate,
+            'signature_url' => $this->signatureRenderUrl($signature),
             'business' => $business,
         ]);
 
@@ -77,16 +132,22 @@ class DocumentController extends Controller
             'additional_notes' => $validated['additional_notes'] ?? null,
             'rendered_html' => $renderedHtml,
             'issued_by' => $validated['issued_by'],
+            'issued_by_official_id' => $validated['issued_by_official_id'] ?? ($signature?->official_id ?? null),
+            'signature_id' => $signature?->id,
+            'signature_path' => $signature?->path,
             'issued_date' => $issuedDate->toDateString(),
             'valid_until' => $validUntil,
             'status' => 'Issued',
             'seal_path' => 'images/logo/Barangay New Era Logo.jpg',
         ]);
 
+        $document->load(['resident', 'template', 'business']);
+        $this->logDocumentActivity('Issued Document', $document);
+
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'Document issued successfully!',
-                'document' => $document->load(['resident', 'template', 'business']),
+                'document' => $document,
             ], 201);
         }
 
@@ -96,6 +157,7 @@ class DocumentController extends Controller
     public function show(Request $request, Document $document)
     {
         $document->load(['resident.household.purok', 'template', 'business']);
+        $document->loadMissing('signature.official.resident');
 
         $residents = Resident::with('household.purok')
             ->where('residency_status', 'Active')
@@ -107,6 +169,7 @@ class DocumentController extends Controller
         }
 
         $templates = DocumentTemplate::where('is_active', true)->orderBy('name')->get();
+        $signatures = Signature::with('official.resident')->get();
 
         if ($document->template && !$templates->contains('id', $document->document_template_id)) {
             $templates->prepend($document->template);
@@ -116,15 +179,16 @@ class DocumentController extends Controller
             return response()->json($document);
         }
 
-        return view('documents.show', compact('document', 'residents', 'templates'));
+        return view('documents.show', compact('document', 'residents', 'templates', 'signatures'));
     }
 
     public function edit(Document $document)
     {
         $residents = Resident::where('residency_status', 'Active')->orderBy('last_name')->get();
         $templates = DocumentTemplate::where('is_active', true)->orderBy('name')->get();
+        $signatures = Signature::with('official.resident')->get();
 
-        return view('documents.edit', compact('document', 'residents', 'templates'));
+        return view('documents.edit', compact('document', 'residents', 'templates', 'signatures'));
     }
 
     public function update(Request $request, Document $document)
@@ -136,14 +200,22 @@ class DocumentController extends Controller
         $issuedDate = $document->issued_date ?? now();
         $validUntil = $this->validUntil($template, $issuedDate);
 
+        $signature = isset($validated['signature_id']) ? Signature::find($validated['signature_id']) : null;
+        if ($signature && empty($validated['issued_by_official_id'])) {
+            $validated['issued_by_official_id'] = $signature->official_id;
+        }
+
         $renderedHtml = $template->render($resident, [
             'reference_number' => $document->reference_number,
             'purpose' => $validated['purpose'] ?? null,
             'additional_notes' => $validated['additional_notes'] ?? null,
             'issued_by' => $validated['issued_by'],
             'issued_date' => $issuedDate,
+            'signature_url' => $this->signatureRenderUrl($signature),
             'business' => $business,
         ]);
+
+        $previousStatus = $document->status;
 
         $document->update([
             'resident_id' => $resident->id,
@@ -152,16 +224,25 @@ class DocumentController extends Controller
             'purpose' => $validated['purpose'] ?? null,
             'additional_notes' => $validated['additional_notes'] ?? null,
             'issued_by' => $validated['issued_by'],
+            'issued_by_official_id' => $validated['issued_by_official_id'] ?? ($signature?->official_id ?? $document->issued_by_official_id),
+            'signature_id' => $signature?->id,
+            'signature_path' => $signature?->path,
             'status' => $validated['status'],
             'rendered_html' => $renderedHtml,
             'valid_until' => $validUntil,
             'seal_path' => $document->seal_path ?: 'images/logo/Barangay New Era Logo.jpg',
         ]);
 
+        $document->load(['resident', 'template', 'business']);
+        $extra = $previousStatus !== $document->status
+            ? "Status {$previousStatus} → {$document->status}"
+            : null;
+        $this->logDocumentActivity('Updated Document', $document, $extra);
+
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'Document updated successfully!',
-                'document' => $document->load(['resident', 'template', 'business']),
+                'document' => $document,
             ]);
         }
 
@@ -170,6 +251,8 @@ class DocumentController extends Controller
 
     public function destroy(Request $request, Document $document)
     {
+        $document->load(['resident', 'template']);
+        $this->logDocumentActivity('Deleted Document', $document);
         $document->delete();
 
         if ($request->expectsJson()) {
@@ -189,6 +272,8 @@ class DocumentController extends Controller
         $referenceNumber = Document::generateReferenceNumber($this->referencePrefix($template));
         $validUntil = $this->validUntil($template, $issuedDate);
         $issuedBy = $validated['issued_by'] ?? 'Barangay Official';
+
+        $signature = isset($validated['signature_id']) ? Signature::find($validated['signature_id']) : null;
 
         $document = new Document([
             'resident_id' => $resident->id,
@@ -210,10 +295,12 @@ class DocumentController extends Controller
             'additional_notes' => $validated['additional_notes'] ?? null,
             'issued_by' => $issuedBy,
             'issued_date' => $issuedDate,
+            'signature_url' => $this->signatureRenderUrl($signature),
             'business' => $business,
         ]);
 
         $document->setRelation('resident', $resident);
+        $document->setRelation('signature', $signature);
         $document->setRelation('template', $template);
         $document->setRelation('business', $business);
 
@@ -226,7 +313,20 @@ class DocumentController extends Controller
 
     public function exportPdf(Document $document)
     {
-        $document->load(['resident.household.purok', 'template', 'business']);
+        $document->load(['resident.household.purok', 'template', 'business', 'signature', 'signature.official']);
+
+        $signature = $document->signature;
+        $rendered = $document->template->render($document->resident, [
+            'reference_number' => $document->reference_number,
+            'purpose' => $document->purpose,
+            'additional_notes' => $document->additional_notes,
+            'issued_by' => $document->issued_by,
+            'issued_date' => $document->issued_date,
+            'signature_url' => $this->signatureRenderUrl($signature, true),
+            'business' => $document->business,
+        ]);
+
+        $document->rendered_html = $rendered;
 
         return Pdf::loadView('documents.print', compact('document'))
             ->setPaper('a4')
@@ -303,8 +403,27 @@ class DocumentController extends Controller
             ->toJson();
     }
 
+    private function signatureRenderUrl(?Signature $signature, bool $forPdf = false): string
+    {
+        if (!$signature) {
+            return '';
+        }
+
+        if ($forPdf) {
+            return $signature->absolutePath() ?? '';
+        }
+
+        return $signature->publicUrl();
+    }
+
     private function validatedDocumentData(Request $request, bool $isUpdate = false, bool $isPreview = false): array
     {
+        $request->merge([
+            'signature_id' => $request->input('signature_id') ?: null,
+            'business_id' => $request->input('business_id') ?: null,
+            'issued_by_official_id' => $request->input('issued_by_official_id') ?: null,
+        ]);
+
         return $request->validate([
             'resident_id' => ['required', 'uuid', 'exists:residents,id'],
             'document_template_id' => ['required', 'uuid', 'exists:document_templates,id'],
@@ -312,6 +431,8 @@ class DocumentController extends Controller
             'purpose' => ['nullable', 'string', 'max:255'],
             'additional_notes' => ['nullable', 'string', 'max:2000'],
             'issued_by' => [$isPreview ? 'nullable' : 'required', 'string', 'max:100'],
+            'issued_by_official_id' => ['nullable', 'uuid', 'exists:officials,id'],
+            'signature_id' => ['nullable', 'uuid', 'exists:signatures,id'],
             'status' => [Rule::requiredIf($isUpdate), 'nullable', Rule::in(['Issued', 'Revoked', 'Expired'])],
         ]);
     }

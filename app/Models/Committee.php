@@ -14,15 +14,36 @@ class Committee extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const DEFAULT_RECORD_TYPES = [
+        'photo',
+        'video',
+        'activity',
+        'accomplishment',
+        'report',
+        'attendance',
+        'inventory',
+        'partnership',
+        'certificate',
+    ];
+
     protected $fillable = [
         'name',
+        'slug',
         'chairperson_id',
+        'chair_label',
         'description',
+        'allowed_record_types',
+    ];
+
+    protected $casts = [
+        'allowed_record_types' => 'array',
     ];
 
     public function officials(): BelongsToMany
     {
-        return $this->belongsToMany(Official::class, 'official_id');
+        return $this->belongsToMany(Official::class, 'official_assignments')
+            ->withPivot('designation')
+            ->withTimestamps();
     }
 
     /**
@@ -46,7 +67,7 @@ class Committee extends Model
      */
     public function records(): HasMany
     {
-        return $this->hasMany(CommitteeRecord::class);
+        return $this->hasMany(CommitteeRecord::class)->latest('recorded_at');
     }
 
 
@@ -64,6 +85,18 @@ class Committee extends Model
     public function attendance_sheets(): HasMany
     {
         return $this->hasMany(CommitteeAttendance::class);
+    }
+
+    public function allowedRecordTypes(): array
+    {
+        return $this->allowed_record_types ?: self::DEFAULT_RECORD_TYPES;
+    }
+
+    public function recordTypeLabels(): array
+    {
+        return collect($this->allowedRecordTypes())
+            ->mapWithKeys(fn (string $type) => [$type => CommitteeRecord::TYPES[$type] ?? str($type)->headline()->toString()])
+            ->all();
     }
 
     /**

@@ -17,7 +17,8 @@ class PurokFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'purok_name' => 'Purok ' . $this->faker->unique()->numberBetween(1, 99),
+            'description' => $this->faker->optional()->sentence(),
         ];
     }
 }

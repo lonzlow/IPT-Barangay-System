@@ -1,82 +1,12 @@
 <?php
 
+use App\Models\ActivityLog;
 use App\Models\Business;
 use App\Models\BusinessOwner;
 use App\Models\Document;
 use App\Models\DocumentTemplate;
-use App\Models\Official;
-use App\Models\Resident;
-use App\Models\Role;
-use App\Models\User;
-use Illuminate\Support\Facades\Hash;
-
-function documentUser(): User
-{
-    $role = Role::create([
-        'role_name' => 'Barangay Secretary',
-        'description' => 'Document issuer',
-    ]);
-
-    $purok = \App\Models\Purok::create(['purok_name' => 'Purok 1']);
-    $household = \App\Models\Household::forceCreate([
-        'purok_id' => $purok->id,
-        'house_number' => '123',
-        'street' => 'Mabini Street',
-        'family_size' => 4,
-    ]);
-
-    $resident = Resident::factory()->create([
-        'household_id' => $household->id,
-        'residency_status' => 'Active',
-    ]);
-
-    $official = Official::create([
-        'official_number' => 'OFF-TEST-001',
-        'resident_id' => $resident->id,
-        'role_id' => $role->id,
-        'term_start' => now()->subYear()->toDateString(),
-        'term_end' => now()->addYear()->toDateString(),
-        'is_active' => true,
-    ]);
-
-    return User::create([
-        'official_id' => $official->id,
-        'email' => 'secretary@example.test',
-        'password' => Hash::make('password'),
-        'email_verified_at' => now(),
-        'status' => 'Active',
-    ]);
-}
-
-function activeResident(): Resident
-{
-    $purok = \App\Models\Purok::first() ?? \App\Models\Purok::create(['purok_name' => 'Purok 1']);
-    $household = \App\Models\Household::forceCreate([
-        'purok_id' => $purok->id,
-        'house_number' => '456',
-        'street' => 'Rizal Street',
-        'family_size' => 3,
-    ]);
-
-    return Resident::factory()->create([
-        'first_name' => 'Juan',
-        'last_name' => 'Dela Cruz',
-        'household_id' => $household->id,
-        'residency_status' => 'Active',
-    ]);
-}
-
-function documentTemplate(string $name = 'Barangay Clearance'): DocumentTemplate
-{
-    return DocumentTemplate::create([
-        'name' => $name,
-        'description' => $name,
-        'template_html' => '<div class="title">'.$name.'</div><p>{{resident_name}} {{purpose}} {{additional_notes}} {{reference_number}} {{issued_by}}</p>',
-        'fields_required' => ['resident_name', 'purpose'],
-        'validity_days' => 90,
-        'is_active' => true,
-    ]);
-}
+use App\Models\Signature;
+use Illuminate\Support\Facades\Storage;
 
 test('user with documents permission can issue a standard certificate', function () {
     $user = documentUser();
@@ -172,6 +102,117 @@ test('document pdf export responds successfully', function () {
     $this->actingAs($user)
         ->get(route('documents.downloadPdf', $document))
         ->assertOk();
+});
+
+test('issuing a document writes an activity log entry', function () {
+    $user = documentUser();
+    $resident = activeResident();
+    $template = documentTemplate();
+
+    $this->actingAs($user)->postJson('/documents', [
+        'resident_id' => $resident->id,
+        'document_template_id' => $template->id,
+        'purpose' => 'Scholarship',
+        'issued_by' => 'Barangay Secretary',
+    ])->assertCreated();
+
+    $document = Document::first();
+    $log = ActivityLog::where('action', 'Issued Document')->latest()->first();
+
+    expect($log)->not->toBeNull()
+        ->and($log->module)->toBe('Document Issuance')
+        ->and($log->user_id)->toBe($user->id)
+        ->and($log->description)->toContain($document->reference_number)
+        ->and($log->description)->toContain('Juan Dela Cruz');
+});
+
+test('updating and deleting documents write activity log entries', function () {
+    $user = documentUser();
+    $resident = activeResident();
+    $template = documentTemplate();
+    $document = Document::factory()->create([
+        'resident_id' => $resident->id,
+        'document_template_id' => $template->id,
+        'status' => 'Issued',
+        'issued_by' => 'Barangay Secretary',
+    ]);
+
+    $this->actingAs($user)->putJson("/documents/{$document->id}", [
+        'resident_id' => $resident->id,
+        'document_template_id' => $template->id,
+        'purpose' => 'Updated purpose',
+        'issued_by' => 'Barangay Secretary',
+        'status' => 'Revoked',
+    ])->assertOk();
+
+    $updateLog = ActivityLog::where('action', 'Updated Document')->latest()->first();
+    expect($updateLog)->not->toBeNull()
+        ->and($updateLog->description)->toContain('Revoked');
+
+    $this->actingAs($user)->deleteJson("/documents/{$document->id}")->assertOk();
+
+    $deleteLog = ActivityLog::where('action', 'Deleted Document')->latest()->first();
+    expect($deleteLog)->not->toBeNull()
+        ->and($deleteLog->description)->toContain($document->reference_number);
+});
+
+test('document audit logs endpoint returns issuance activity', function () {
+    $user = documentUser();
+    $resident = activeResident();
+    $template = documentTemplate();
+
+    $this->actingAs($user)->postJson('/documents', [
+        'resident_id' => $resident->id,
+        'document_template_id' => $template->id,
+        'issued_by' => 'Barangay Secretary',
+    ])->assertCreated();
+
+    $response = $this->actingAs($user)->getJson(route('documents.auditLogs'));
+
+    $response->assertOk();
+
+    expect(collect($response->json())->pluck('action'))->toContain('Issued Document');
+});
+
+test('empty signature_id does not fail validation on issue', function () {
+    $user = documentUser();
+    $resident = activeResident();
+    $template = documentTemplate();
+
+    $this->actingAs($user)->postJson('/documents', [
+        'resident_id' => $resident->id,
+        'document_template_id' => $template->id,
+        'signature_id' => '',
+        'issued_by' => 'Barangay Secretary',
+    ])->assertCreated();
+});
+
+test('document can be issued with a selected signature', function () {
+    Storage::fake('public');
+    $user = documentUser();
+    $resident = activeResident();
+    $template = documentTemplate();
+    $path = 'signatures/test.png';
+    Storage::disk('public')->put($path, 'img');
+
+    $signature = Signature::factory()->create([
+        'official_id' => $user->official_id,
+        'path' => $path,
+    ]);
+
+    $response = $this->actingAs($user)->postJson('/documents', [
+        'resident_id' => $resident->id,
+        'document_template_id' => $template->id,
+        'purpose' => 'Employment',
+        'issued_by' => 'Barangay Secretary',
+        'signature_id' => $signature->id,
+    ]);
+
+    $response->assertCreated();
+
+    $document = Document::first();
+    expect($document->signature_id)->toBe($signature->id)
+        ->and($document->signature_path)->toBe($path);
 });
 
 test('documents datatable returns expected columns', function () {

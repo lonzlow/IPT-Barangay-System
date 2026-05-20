@@ -35,12 +35,7 @@
                     <div style="font-size:28px;color:#10b981;margin-bottom:8px;">
                         <i class="bi bi-houses"></i>
                     </div>
-                    <h3 class="fw-bold" style="color:#1e293b;margin-bottom:4px;">
-                        @php
-                            $totalHouseholds = \App\Models\Household::count();
-                        @endphp
-                        {{ $totalHouseholds }}
-                    </h3>
+                    <h3 class="fw-bold" style="color:#1e293b;margin-bottom:4px;">{{ $statistics['total_households'] }}</h3>
                     <p style="color:#94a3b8;font-size:13px;margin:0;">Total Households</p>
                 </div>
             </div>
@@ -61,6 +56,8 @@
                                         <th style="color:#475569;font-weight:600;padding:12px;">Description</th>
                                         <th style="color:#475569;font-weight:600;padding:12px;">Leader</th>
                                         <th style="color:#475569;font-weight:600;padding:12px;">Households</th>
+                                        <th style="color:#475569;font-weight:600;padding:12px;">Residents</th>
+                                        <th style="color:#475569;font-weight:600;padding:12px;">Registered Voters</th>
                                         <th style="color:#475569;font-weight:600;padding:12px;">Actions</th>
                                     </tr>
                                 </thead>
@@ -76,6 +73,16 @@
                                             <td style="padding:12px;">
                                                 <span class="badge" style="background-color:#e0e7ff;color:#1a56db;">
                                                     {{ $purok->households_count }}
+                                                </span>
+                                            </td>
+                                            <td style="padding:12px;">
+                                                <span class="badge" style="background-color:#dcfce7;color:#166534;">
+                                                    {{ $purok->residents_count }}
+                                                </span>
+                                            </td>
+                                            <td style="padding:12px;">
+                                                <span class="badge" style="background-color:#fef3c7;color:#b45309;">
+                                                    {{ $purok->registered_voters_count }}
                                                 </span>
                                             </td>
                                             <td style="padding:12px;">

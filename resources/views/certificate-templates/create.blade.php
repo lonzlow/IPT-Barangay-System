@@ -51,7 +51,7 @@
                             </label>
                             <textarea name="template_html" class="form-control" style="border-radius:8px;font-size:12px;font-family:monospace;" rows="10" required placeholder="HTML template with {{placeholders}}"></textarea>
                             <small class="d-block mt-2" style="color:#64748b;">
-                                Available placeholders: {{resident_name}}, {{first_name}}, {{last_name}}, {{age}}, {{gender}}, {{email}}, {{contact_number}}, {{household_address}}, {{current_date}}, {{current_date_long}}, {{issued_by}}, {{reference_number}}
+                                Available placeholders: {{resident_name}}, {{first_name}}, {{last_name}}, {{age}}, {{gender}}, {{email}}, {{contact_number}}, {{household_address}}, {{current_date}}, {{current_date_long}}, {{issued_by}}, {{reference_number}}, {{signature_url}}
                             </small>
                             @error('template_html')
                                 <small class="text-danger">{{ $message }}</small>
