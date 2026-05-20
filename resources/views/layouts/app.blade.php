@@ -151,7 +151,10 @@
 {{-- ── SIDEBAR ── --}}
 <nav id="sidebar">
     <a href="{{ route('dashboard') }}" class="sidebar-brand">
-        <div class="brand-icon"><i class="bi bi-buildings-fill"></i></div>
+        <div class="flex-shrink-0">
+                    <img src="{{ asset('images/logo/Barangay New Era Logo.jpg') }}" alt="Barangay Logo"
+                        class="w-14 h-14 object-cover rounded-full border-2 border-white shadow-md">
+                </div>
         <div>
             <div class="brand-text">Barangay New Era</div>
             <div class="brand-sub">Management System</div>
