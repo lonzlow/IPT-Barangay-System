@@ -274,27 +274,38 @@ class ResidentController extends Controller
                 }
             })
             ->addColumn('action', function ($resident) use ($isAdminOrSecretary) {
-                // LAHAT ng roles (Admin, Secretary, at Others) ay may Edit button para sa resident
-                $editBtn = '<button type="button" class="btn btn-sm btn-light border" style="border-radius:6px;padding:3px 8px;" onclick="openEditModal(\'' . $resident->id . '\')" title="Edit"><i class="bi bi-pencil" style="font-size:13px;"></i></button>';
+                // Edit button - lalabas lang kung HINDI deleted
+                $editBtn = !$resident->trashed()
+                    ? '<button type="button" class="btn btn-sm btn-light border" style="border-radius:6px;padding:3px 8px;" onclick="openEditModal(\'' . $resident->id . '\')" title="Edit"><i class="bi bi-pencil" style="font-size:13px;"></i></button>'
+                    : '';
 
                 $actionBtn = '';
 
-                // DITO SA LOOB: Para sa ADMIN at SECRETARY lamang ang logic na ito
                 if ($isAdminOrSecretary) {
                     if ($resident->trashed()) {
-                        // Kung deleted resident ang tinitingnan ng Admin/Secretary, magkatabi ang Edit at Recover
-                        $actionBtn = '<button type="button" class="btn btn-sm btn-light text-success border" style="border-radius:6px;padding:3px 8px;" onclick="confirmRecover(\'' . $resident->id . '\')" title="Recover"><i class="bi bi-arrow-counterclockwise" style="font-size:13px;"></i></button>';
+                        // Kung deleted: Restore button lang
+                        $actionBtn = '<button type="button" class="btn btn-sm btn-light text-success border" style="border-radius:6px;padding:3px 8px;" onclick="confirmRestore(\'' . $resident->id . '\')" title="Restore"><i class="bi bi-arrow-counterclockwise" style="font-size:13px;"></i></button>';
                     } else {
-                        // Kung active resident naman, magkatabi ang Edit at Delete
+                        // Kung active: Delete button
                         $actionBtn = '<button type="button" class="btn btn-sm btn-light text-danger border" style="border-radius:6px;padding:3px 8px;" onclick="confirmDelete(\'' . $resident->id . '\')" title="Delete"><i class="bi bi-trash" style="font-size:13px;"></i></button>';
                     }
                 }
 
-                // Pagsasamahin ang Edit button at ang karagdagang button (kung meron)
                 return '<div class="d-flex gap-1">' . $editBtn . $actionBtn . '</div>';
             })
             ->rawColumns(['voter', 'civil_status', 'action'])
             ->make(true);
+    }
+
+    // ResidentController.php
+
+    public function restore($id)
+    {
+        // Gamitin ang withTrashed() para mahanap ang deleted na record
+        $resident = Resident::withTrashed()->findOrFail($id);
+        $resident->restore();
+
+        return response()->json(['success' => 'Resident recovered successfully.']);
     }
 
     /**

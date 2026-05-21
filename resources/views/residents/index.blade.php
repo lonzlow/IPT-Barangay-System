@@ -100,6 +100,13 @@ Route: GET /residents → route('residents.index')
             position: relative;
             height: 220px;
         }
+
+        .row-deleted {
+            background-color: #e2e8f0 !important;
+            /* Light gray background */
+            color: #64748b !important;
+            /* Muted text color */
+        }
     </style>
 @endsection
 
@@ -346,10 +353,61 @@ Route: GET /residents → route('residents.index')
         </div>
     </div>
 
+
 @endsection
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="successToast" class="toast align-items-center text-white bg-success border-0" role="alert"
+        aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="bi bi-check-circle-fill me-2"></i> Resident updated successfully!
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+                aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete Resident</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete this resident?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Restore Confirmation Modal -->
+<div class="modal fade" id="restoreConfirmModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Restore Resident</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to restore this resident?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="confirmRestoreBtn">Restore</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 @section('scripts')
     <script>
+        console.log("Script is running!");
         new Chart(document.getElementById('genderChart'), {
             type: 'doughnut',
             data: {
@@ -412,6 +470,12 @@ Route: GET /residents → route('residents.index')
                         d.age_to = $('#age-to').val() || '';
                     }
                 },
+
+                createdRow: function (row, data, dataIndex) {
+                    if (data.deleted_at !== null) {
+                        $(row).addClass('row-deleted');
+                    }
+                },
                 columns: [
                     { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
                     { data: 'first_name', name: 'first_name' },
@@ -427,7 +491,6 @@ Route: GET /residents → route('residents.index')
                     { data: 'civil_status', name: 'civil_status', orderable: false, searchable: false },
                     { data: 'action', name: 'action', orderable: false, searchable: false }
                 ],
-
                 // Hahawakan natin ang UI updates tuwing magbabago ang data o magpi-filter ang user
                 drawCallback: function (settings) {
                     var api = this.api();
@@ -484,6 +547,12 @@ Route: GET /residents → route('residents.index')
                     ul.append(nextBtn);
 
                     navContainer.append(ul);
+                    $('#residents-table tbody tr').each(function () {
+                        // Check kung may "Deleted" text sa loob ng row na ito
+                        if ($(this).text().includes('Deleted')) {
+                            $(this).addClass('row-deleted');
+                        }
+                    });
                 }
             });
 
@@ -544,61 +613,98 @@ Route: GET /residents → route('residents.index')
             });
         }
 
-        $('#editResidentForm').on('submit', function (e) {
-            e.preventDefault();
-            var id = $('#edit_resident_id').val();
-            var url = "{{ route('residents.update', ':id') }}".replace(':id', id);
+        $(document).ready(function () {
+            $('#editResidentForm').on('submit', function (e) {
+                e.preventDefault();
 
+                let id = $('#edit_resident_id').val();
+                let url = "{{ route('residents.update', ':id') }}".replace(':id', id);
+
+                $.ajax({
+                    url: url,
+                    type: 'POST',
+                    data: $(this).serialize() + "&_method=PUT",
+                    success: function (response) {
+                        $('#editResidentModal').modal('hide');
+                        $('#residents-table').DataTable().ajax.reload(null, false);
+
+                        // --- DITO ANG PAG-TRIGGER NG TOAST ---
+                        var toastEl = document.getElementById('successToast');
+                        var toast = new bootstrap.Toast(toastEl);
+                        toast.show();
+                    },
+                    error: function (xhr) {
+                        console.log(xhr.responseText);
+                        // Optional: Pwede ka rin gumawa ng error toast dito
+                    }
+                });
+            });
+        });
+
+        let deleteId = null;
+
+        $(document).on('click', '.delete-btn', function () {
+            deleteId = $(this).data('id');
+            $('#deleteConfirmModal').modal('show');
+        });
+
+        $('#confirmDeleteBtn').on('click', function () {
             $.ajax({
-                url: url,
-                type: 'POST',
-                data: $(this).serialize(),
-                success: function (response) {
-                    $('#editResidentModal').modal('hide');
-                    table.ajax.reload(null, false);
-                    alert("Resident updated successfully!");
+                url: "/residents/" + deleteId,
+                type: 'DELETE',
+                data: { _token: "{{ csrf_token() }}" },
+                success: function () {
+                    $('#deleteConfirmModal').modal('hide');
+                    $('#residents-table').DataTable().ajax.reload(null, false);
+
+                    // Toast notification
+                    var toastEl = document.getElementById('successToast');
+                    toastEl.querySelector('.toast-body').innerHTML = '<i class="bi bi-trash-fill me-2"></i> Resident deleted successfully!';
+                    new bootstrap.Toast(toastEl).show();
                 }
             });
         });
 
-        function confirmDelete(id) {
-            if (confirm("Sigurado ka ba na gusto mong i-delete ang residenteng ito?")) {
-                var url = "{{ route('residents.destroy', ':id') }}".replace(':id', id);
+        let restoreId = null;
 
-                $.ajax({
-                    url: url,
-                    type: 'DELETE',
-                    data: { _token: "{{ csrf_token() }}" },
-                    success: function (response) {
-                        table.ajax.reload(null, false);
-                        alert("Resident soft-deleted successfully.");
-                    }
-                });
-            }
+        // 2. Kapag kinlik ang "Restore" button sa table row
+        function confirmRestore(id) {
+            restoreId = id; // I-set ang global variable
+            $('#restoreConfirmModal').modal('show');
         }
 
-        function confirmRecover(id) {
-            if (confirm("Sigurado ka ba na gusto mong i-recover ang residenteng ito?")) {
-                // Tiyakin na mayroon kang katapat na route para sa restore/recover sa web.php mo
-                var url = "{{ route('residents.recover', ':id') }}".replace(':id', id);
+        // 3. Eto ang handler para sa button sa loob ng modal
+        $(document).on('click', '#confirmRestoreBtn', function () {
+            if (!restoreId) return;
 
-                $.ajax({
-                    url: url,
-                    type: 'POST', // Karaniwang POST o PATCH ang restore
-                    data: {
-                        _token: "{{ csrf_token() }}",
-                        _method: "PATCH" // Kung PATCH ang gamit mo sa route, kung hindi ay alisin itong linyang ito
-                    },
-                    success: function (response) {
-                        table.ajax.reload(null, false); // I-reload ang table nang hindi nababalik sa page 1
-                        alert("Resident recovered successfully.");
-                    },
-                    error: function (xhr) {
-                        alert("May nagpawalang-bisa sa pag-recover. Pakisuri ang logs.");
+            $.ajax({
+                url: "/residents/" + restoreId + "/restore", // Siguraduhin na ito ang tamang path
+                type: 'POST',
+                data: {
+                    _token: "{{ csrf_token() }}",
+                    _method: "PATCH"
+                },
+                success: function (response) {
+                    $('#restoreConfirmModal').modal('hide');
+                    // I-reload ang table
+                    $('#residents-table').DataTable().ajax.reload(null, false);
+
+                    // Optional: I-reset ang ID
+                    restoreId = null;
+
+                    // Toast
+                    var toastEl = document.getElementById('successToast');
+                    if (toastEl) {
+                        toastEl.querySelector('.toast-body').innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> Resident restored successfully!';
+                        new bootstrap.Toast(toastEl).show();
                     }
-                });
-            }
-        }
+                },
+                error: function (xhr) {
+                    alert("Error sa pag-restore. Tingnan ang console.");
+                    console.log(xhr.responseText);
+                }
+            });
+        });
     </script>
     <div class="modal fade" id="editResidentModal" tabindex="-1" aria-labelledby="editResidentModalLabel"
         aria-hidden="true">

@@ -43,7 +43,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/residents/data', [ResidentController::class, 'getResidents'])->name('residents.data');
     Route::get('/residents/demographics', [ResidentController::class, 'demographics'])->name('residents.demographics');
     Route::get('/residents/export-pdf', [ResidentController::class, 'exportPDF'])->name('residents.exportPDF');
-    Route::patch('/residents/{id}/recover', [ResidentController::class, 'recover'])->name('residents.recover');
+    Route::patch('/residents/{id}/restore', [App\Http\Controllers\ResidentController::class, 'restore'])->name('residents.recover');
     Route::resource('/residents', ResidentController::class);
 
     // DOCUMENTS ROUTE
