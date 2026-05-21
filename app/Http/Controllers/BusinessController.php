@@ -6,6 +6,7 @@ use App\Models\Business;
 use App\Models\BusinessOwner;
 use App\Models\BusinessPermit;
 use App\Models\PermitRenewal;
+use App\Models\Resident;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -60,13 +61,7 @@ class BusinessController extends Controller
                 ];
             }
 
-            $businessOptions[] = [
-                'id' => $business->id,
-                'label' => $business->business_name . ' - ' . $this->formatOwnerName($business->business_owners->first()),
-                'business_name' => $business->business_name,
-                'permit_number' => $permit?->permit_number,
-                'can_issue' => ! $permit || ! in_array($status, ['Approved', 'Renewed'], true),
-            ];
+            $businessOptions[] = $this->businessOption($business, $permit, $status);
         }
 
         usort($expiringSoon, fn ($a, $b) => $a['days'] <=> $b['days']);
@@ -81,13 +76,6 @@ class BusinessController extends Controller
                 'active_rate' => $registered ? round(($active / $registered) * 100, 1) : 0,
             ],
             'businessOptions' => $businessOptions,
-            'availableOwners' => BusinessOwner::with('resident')
-                ->get()
-                ->map(fn (BusinessOwner $owner) => [
-                    'id' => $owner->id,
-                    'name' => trim(preg_replace('/\s+/', ' ', $this->formatOwnerName($owner))),
-                ])
-                ->values(),
             'expiringSoon' => array_slice($expiringSoon, 0, 5),
             'typeDistribution' => $typeDistribution,
             'permitYear' => now()->year,
@@ -116,8 +104,8 @@ class BusinessController extends Controller
         $validated = $request->validate([
             'business_name' => 'required|string|max:255',
 
-            'business_owner_ids' => 'required|array|min:1',
-            'business_owner_ids.*' => 'required|exists:business_owners,id',
+            'business_owner_resident_ids' => 'required|array|min:1',
+            'business_owner_resident_ids.*' => 'required|uuid|exists:residents,id',
 
             'ownership_roles' => 'nullable|array',
             'ownership_roles.*' => 'nullable|in:Owner,Co-owner,Representative',
@@ -131,7 +119,7 @@ class BusinessController extends Controller
             'status' => 'required|in:Active,Inactive,Closed',
         ]);
 
-        $ownerIds = $request->input('business_owner_ids', []);
+        $ownerIds = $this->ownerIdsFromResidents($request->input('business_owner_resident_ids', []));
         $roles = $request->input('ownership_roles', []);
         $percentages = $request->input('ownership_percentages', []);
 
@@ -140,7 +128,7 @@ class BusinessController extends Controller
             ->sum();
 
         if (
-            count($request->business_owner_ids) > 1 &&
+            count($ownerIds) > 1 &&
             $totalPercentage != 100
         ) {
             return response()->json([
@@ -186,6 +174,7 @@ class BusinessController extends Controller
                 return response()->json([
                     'message' => 'Business created successfully.',
                     'business' => $business,
+                    'business_option' => $this->businessOption($business),
                 ], 201);
             }
 
@@ -229,8 +218,6 @@ class BusinessController extends Controller
 
         $business = Business::with('business_owners.resident')->findOrFail($id);
 
-        $owners = BusinessOwner::with('resident')->get();
-
         if (request()->expectsJson()) {
 
             return response()->json([
@@ -247,41 +234,17 @@ class BusinessController extends Controller
 
                         return [
                             'business_owner_id' => $owner->id,
+                            'resident_id' => $owner->resident_id,
+                            'name' => trim(preg_replace('/\s+/', ' ', $this->formatOwnerName($owner))),
                             'ownership_role' => $owner->pivot->ownership_role,
                             'ownership_percentage' => $owner->pivot->ownership_percentage,
                         ];
                     }),
                 ],
-
-                'owners' => $owners->map(function ($owner) {
-
-                    if ($owner->resident_id && $owner->resident) {
-
-                        $name = trim(
-                            $owner->resident->first_name . ' ' .
-                            $owner->resident->middle_name . ' ' .
-                            $owner->resident->last_name . ' ' .
-                            $owner->resident->suffix
-                        );
-
-                    } else {
-
-                        $name = $owner->organization_name
-                            ?: trim(
-                                $owner->first_name . ' ' .
-                                $owner->middle_name . ' ' .
-                                $owner->last_name . ' ' .
-                                $owner->suffix
-                            );
-                    }
-
-                    return [
-                        'id' => $owner->id,
-                        'name' => $name,
-                    ];
-                }),
             ]);
         }
+
+        $owners = BusinessOwner::with('resident')->get();
 
         return view('businesses.edit', compact('business', 'owners'));
     }
@@ -298,8 +261,8 @@ class BusinessController extends Controller
         $validated = $request->validate([
             'business_name' => 'required|string|max:255',
 
-            'business_owner_ids' => 'required|array|min:1',
-            'business_owner_ids.*' => 'required|exists:business_owners,id',
+            'business_owner_resident_ids' => 'required|array|min:1',
+            'business_owner_resident_ids.*' => 'required|uuid|exists:residents,id',
 
             'ownership_roles' => 'required|array',
             'ownership_roles.*' => 'required|in:Owner,Co-owner,Representative',
@@ -313,7 +276,7 @@ class BusinessController extends Controller
             'status' => 'required|in:Active,Inactive,Closed',
         ]);
 
-        $ownerIds = $request->input('business_owner_ids', []);
+        $ownerIds = $this->ownerIdsFromResidents($request->input('business_owner_resident_ids', []));
         $roles = $request->input('ownership_roles', []);
         $percentages = $request->input('ownership_percentages', []);
 
@@ -322,7 +285,7 @@ class BusinessController extends Controller
             ->sum();
 
         if (
-            count($request->business_owner_ids) > 1 &&
+            count($ownerIds) > 1 &&
             $totalPercentage != 100
         ) {
             return response()->json([
@@ -366,6 +329,7 @@ class BusinessController extends Controller
                 return response()->json([
                     'message' => 'Business updated successfully.',
                     'business' => $business->load('business_owners.resident'),
+                    'business_option' => $this->businessOption($business->loadMissing('business_permits', 'business_owners.resident')),
                 ]);
             }
 
@@ -393,12 +357,56 @@ class BusinessController extends Controller
     {
         $this->authorize('business.delete');
 
+        $businessId = $business->id;
         $business->delete();
 
         if (request()->expectsJson()) {
-            return response()->json(['message' => 'Business permit row deleted successfully.']);
+            return response()->json([
+                'message' => 'Business permit row deleted successfully.',
+                'business_id' => $businessId,
+            ]);
         }
         return redirect()->route('businesses.index')->with('success', 'Business permit row deleted successfully.');
+    }
+
+    public function residentsSearch(Request $request): JsonResponse
+    {
+        $this->authorize('business.manage');
+
+        $search = trim((string) $request->query('q', ''));
+
+        $residents = Resident::query()
+            ->select([
+                'id',
+                'resident_number',
+                'first_name',
+                'middle_name',
+                'last_name',
+                'suffix',
+                'contact_number',
+                'email',
+            ])
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('resident_number', 'like', "%{$search}%")
+                        ->orWhere('first_name', 'like', "%{$search}%")
+                        ->orWhere('middle_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('suffix', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->limit(20)
+            ->get()
+            ->map(fn (Resident $resident) => [
+                'id' => $resident->id,
+                'text' => trim($this->residentName($resident) . ' - ' . $resident->resident_number),
+                'name' => $this->residentName($resident),
+                'resident_number' => $resident->resident_number,
+            ]);
+
+        return response()->json(['results' => $residents]);
     }
 
     public function data(Request $request)
@@ -616,6 +624,7 @@ class BusinessController extends Controller
         return response()->json([
             'message' => 'Business permit issued successfully.',
             'permit' => $this->formatPermit($permit->load('renewals')),
+            'business_option' => $this->businessOption($business->load('business_owners.resident', 'business_permits')),
         ], 201);
     }
 
@@ -672,6 +681,7 @@ class BusinessController extends Controller
                 'new_expiry_date' => $renewal->new_expiry_date?->format('Y-m-d'),
             ],
             'permit' => $this->formatPermit($permit->fresh('renewals')),
+            'business_option' => $this->businessOption($business->load('business_owners.resident', 'business_permits')),
         ]);
     }
 
@@ -693,6 +703,63 @@ class BusinessController extends Controller
             ],
             'permits' => $business->business_permits->map(fn (BusinessPermit $permit) => $this->formatPermit($permit)),
         ]);
+    }
+
+    private function ownerIdsFromResidents(array $residentIds): array
+    {
+        return collect($residentIds)
+            ->filter()
+            ->unique()
+            ->map(function (string $residentId) {
+                $resident = Resident::findOrFail($residentId);
+
+                $owner = BusinessOwner::query()
+                    ->where('resident_id', $resident->id)
+                    ->first();
+
+                if (! $owner) {
+                    $owner = BusinessOwner::create([
+                        'owner_type' => 'Resident',
+                        'resident_id' => $resident->id,
+                        'first_name' => $resident->first_name,
+                        'middle_name' => $resident->middle_name,
+                        'last_name' => $resident->last_name,
+                        'suffix' => $resident->suffix,
+                        'contact_number' => $resident->contact_number,
+                        'email' => $resident->email,
+                    ]);
+                }
+
+                return $owner->id;
+            })
+            ->values()
+            ->all();
+    }
+
+    private function businessOption(Business $business, ?BusinessPermit $permit = null, ?string $status = null): array
+    {
+        $business->loadMissing('business_owners.resident', 'business_permits');
+
+        $permit ??= $this->currentPermit($business);
+        $status ??= $permit ? $this->displayPermitStatus($permit) : 'Pending';
+
+        return [
+            'id' => $business->id,
+            'label' => $business->business_name . ' - ' . ($this->formatOwnerName($business->business_owners->first()) ?: 'No owner'),
+            'business_name' => $business->business_name,
+            'permit_number' => $permit?->permit_number,
+            'can_issue' => ! $permit || ! in_array($status, ['Approved', 'Renewed'], true),
+        ];
+    }
+
+    private function residentName(Resident $resident): string
+    {
+        return trim(preg_replace('/\s+/', ' ', implode(' ', [
+            $resident->first_name,
+            $resident->middle_name,
+            $resident->last_name,
+            $resident->suffix,
+        ])));
     }
 
     private function upsertOwnerFromName(Business $business, string $ownerName): BusinessOwner

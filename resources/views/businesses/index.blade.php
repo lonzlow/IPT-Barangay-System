@@ -16,6 +16,16 @@
     .business-permit-page .form-control,
     .business-permit-page .form-select { border-radius: 8px; font-size: 13px; }
     .business-permit-page .form-label { font-size: 12.5px; font-weight: 700; color: #0f172a; }
+    .owner-search-results {
+        position: absolute; z-index: 1060; width: 100%; max-height: 190px; overflow-y: auto;
+        background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; margin-top: 4px;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, .12);
+    }
+    .owner-search-results button {
+        display: block; width: 100%; padding: 8px 10px; border: 0; background: #fff;
+        text-align: left; font-size: 12.5px; color: #0f172a;
+    }
+    .owner-search-results button:hover { background: #eff6ff; }
     .qr-placeholder {
         width: 104px; height: 104px; background: #f8fafc; border: 2px dashed #cbd5e1;
         border-radius: 10px; display: flex; align-items: center; justify-content: center;
@@ -340,8 +350,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const routes = {
         data: @json(route('businesses.data')),
         store: @json(route('businesses.store')),
+        residentSearch: @json(route('businesses.residents.search')),
     };
-    const availableOwners = @json($availableOwners);
     const permitStatusLabels = ['Active', 'Expiring', 'Expired', 'Pending'];
     const permitStatusCounts = [
         @json($permitSummary['active']),
@@ -396,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const normalized = field.replace(/\.\d+$/, '');
             const input = form.querySelector(`[name="${normalized}"], [name="${normalized}[]"]`);
 
-            if (normalized.startsWith('business_owner_ids') || normalized.startsWith('ownership_percentages')) {
+            if (normalized.startsWith('business_owner_resident_ids') || normalized.startsWith('ownership_percentages')) {
                 document.getElementById('ownersError').textContent = messages[0] || 'Please review the owner rows.';
                 return;
             }
@@ -413,20 +423,81 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    const ownerOptionsHtml = (selectedId = '') => availableOwners.map((owner) => {
-        const selected = String(owner.id) === String(selectedId) ? 'selected' : '';
-        return `<option value="${owner.id}" ${selected}>${owner.name}</option>`;
-    }).join('');
+    const escapeHtml = (value = '') => String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
 
-    window.addOwnerRow = (selectedId = '', role = 'Owner', percentage = '') => {
+    const searchResidents = async (query) => {
+        const url = new URL(routes.residentSearch, window.location.origin);
+        url.searchParams.set('q', query);
+        const response = await axios.get(url.toString());
+        return response.data.results || [];
+    };
+
+    const renderOwnerResults = (row, residents) => {
+        const results = row.querySelector('.owner-search-results');
+        results.innerHTML = residents.length
+            ? residents.map((resident) => `
+                <button type="button"
+                        data-resident-id="${escapeHtml(resident.id)}"
+                        data-resident-text="${escapeHtml(resident.text)}"
+                        data-resident-name="${escapeHtml(resident.name)}">
+                    ${escapeHtml(resident.text)}
+                </button>
+            `).join('')
+            : '<button type="button" disabled>No matching residents found</button>';
+        results.classList.remove('d-none');
+    };
+
+    const attachOwnerSearch = (row) => {
+        const input = row.querySelector('.owner-search-input');
+        const hidden = row.querySelector('[name="business_owner_resident_ids[]"]');
+        const results = row.querySelector('.owner-search-results');
+
+        input.addEventListener('input', () => {
+            hidden.value = '';
+            clearTimeout(input.searchTimer);
+            const query = input.value.trim();
+
+            if (query.length < 2) {
+                results.classList.add('d-none');
+                return;
+            }
+
+            input.searchTimer = setTimeout(async () => {
+                try {
+                    renderOwnerResults(row, await searchResidents(query));
+                } catch (error) {
+                    results.innerHTML = '<button type="button" disabled>Unable to search residents</button>';
+                    results.classList.remove('d-none');
+                }
+            }, 250);
+        });
+
+        results.addEventListener('click', (event) => {
+            const option = event.target.closest('button[data-resident-id]');
+            if (!option) {
+                return;
+            }
+
+            hidden.value = option.dataset.residentId;
+            input.value = option.dataset.residentText || option.dataset.residentName || '';
+            input.classList.remove('is-invalid');
+            results.classList.add('d-none');
+        });
+    };
+
+    window.addOwnerRow = (selectedResidentId = '', role = 'Owner', percentage = '', selectedOwnerText = '') => {
         const row = document.createElement('div');
         row.className = 'owner-row row g-2 align-items-end mb-2';
         row.innerHTML = `
-            <div class="col-md-5">
-                <select class="form-select" name="business_owner_ids[]" required>
-                    <option value="">Select owner...</option>
-                    ${ownerOptionsHtml(selectedId)}
-                </select>
+            <div class="col-md-5 position-relative">
+                <input type="hidden" name="business_owner_resident_ids[]" value="${escapeHtml(selectedResidentId)}">
+                <input type="text" class="form-control owner-search-input" value="${escapeHtml(selectedOwnerText)}" placeholder="Search resident name or number" autocomplete="off" required>
+                <div class="owner-search-results d-none"></div>
             </div>
             <div class="col-md-3">
                 <select class="form-select" name="ownership_roles[]" required>
@@ -444,6 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
         row.querySelector('button').addEventListener('click', () => row.remove());
         ownersContainer.appendChild(row);
+        attachOwnerSearch(row);
     };
 
     window.openCreateModal = () => {
@@ -467,7 +539,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ownersContainer.innerHTML = '';
 
         (business.owners || []).forEach((owner) => {
-            addOwnerRow(owner.business_owner_id, owner.ownership_role || 'Owner', owner.ownership_percentage || '');
+            addOwnerRow(owner.resident_id || '', owner.ownership_role || 'Owner', owner.ownership_percentage || '', owner.name || '');
         });
 
         if (!ownersContainer.children.length) {
@@ -477,6 +549,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const reloadTable = (resetPaging = false) => {
         businessesTable?.ajax.reload(null, resetPaging);
+    };
+
+    const upsertBusinessOption = (option) => {
+        if (!option?.id) {
+            return;
+        }
+
+        const select = document.getElementById('quickBusinessSelect');
+        let node = Array.from(select.options).find((item) => item.value === String(option.id));
+
+        if (!node) {
+            node = document.createElement('option');
+            node.value = option.id;
+            select.appendChild(node);
+        }
+
+        node.textContent = option.label;
+        node.dataset.permit = option.permit_number || '';
+        node.dataset.canIssue = option.can_issue ? '1' : '0';
+        node.dataset.name = option.business_name || '';
     };
 
     const initCharts = () => {
@@ -573,6 +665,7 @@ document.addEventListener('DOMContentLoaded', () => {
             issued_date: issuedDate,
             expiry_date: expiryDate,
         });
+        upsertBusinessOption(response.data.business_option);
         showAlert(response.data.message || 'Business permit issued successfully.');
         reloadTable();
     };
@@ -693,6 +786,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 : await axios.post(routes.store, formData);
 
             businessModal.hide();
+            upsertBusinessOption(response.data.business_option);
             showAlert(response.data.message || 'Business saved successfully.');
             reloadTable();
         } catch (error) {
@@ -719,6 +813,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await axios.post(`${businessBaseUrl}/${businessId}/permits/${permitId}/renew`, new FormData(form));
 
             renewPermitModal.hide();
+            upsertBusinessOption(response.data.business_option);
             showAlert(response.data.message || 'Business permit renewed successfully.');
             reloadTable();
         } catch (error) {
@@ -755,6 +850,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'delete':
                     if (confirm('Delete this business permit row?')) {
                         const response = await axios.delete(`${businessBaseUrl}/${businessId}`);
+                        const deletedId = String(response.data.business_id || businessId);
+                        Array.from(document.getElementById('quickBusinessSelect').options)
+                            .find((item) => item.value === deletedId)
+                            ?.remove();
                         showAlert(response.data.message || 'Business deleted successfully.');
                         reloadTable();
                     }

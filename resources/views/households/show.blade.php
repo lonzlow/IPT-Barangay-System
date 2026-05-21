@@ -10,9 +10,11 @@
         <p class="mb-0" style="font-size:13px;color:#64748b;">{{ $household->purok?->purok_name ?? 'No Purok assigned' }}</p>
     </div>
     <div class="d-flex gap-2">
-        <a href="{{ route('households.edit', $household) }}" class="btn btn-warning" style="border-radius:8px;">
-            <i class="bi bi-pencil"></i> Edit
-        </a>
+        @can('households.manage')
+            <a href="{{ route('households.edit', $household) }}" class="btn btn-warning" style="border-radius:8px;">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+        @endcan
         <a href="{{ route('households.index') }}" class="btn btn-outline-secondary" style="border-radius:8px;">
             <i class="bi bi-arrow-left"></i> Back
         </a>

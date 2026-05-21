@@ -58,6 +58,34 @@ class User extends Authenticatable
         return $this->belongsTo(Official::class, 'official_id');
     }
 
+    public function getNameAttribute(): string
+    {
+        return trim(collect([
+            $this->official?->resident?->first_name,
+            $this->official?->resident?->last_name,
+        ])->filter()->implode(' '));
+    }
+
+    public function getFirstNameAttribute(): ?string
+    {
+        return $this->official?->resident?->first_name;
+    }
+
+    public function getMiddleNameAttribute(): ?string
+    {
+        return $this->official?->resident?->middle_name;
+    }
+
+    public function getLastNameAttribute(): ?string
+    {
+        return $this->official?->resident?->last_name;
+    }
+
+    public function getSuffixAttribute(): ?string
+    {
+        return $this->official?->resident?->suffix;
+    }
+
     public function blotter_filedBy(): HasMany
     {
         return $this->hasMany(Blotter::class, 'filed_by');

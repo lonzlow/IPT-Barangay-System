@@ -55,10 +55,13 @@
                                 @foreach($residents as $resident)
                                     <option value="{{ $resident->id }}" {{ $purok->leader_id == $resident->id ? 'selected' : '' }}>
                                         {{ $resident->first_name }} {{ $resident->last_name }}
+                                        @if($resident->household?->purok)
+                                            - {{ $resident->household->purok->purok_name }}
+                                        @endif
                                     </option>
                                 @endforeach
                             </select>
-                            <small style="color:#94a3b8;">Only residents assigned to households in this Purok can be selected.</small>
+                            <small style="color:#94a3b8;">Choose any registered resident as the Purok leader.</small>
                             @error('leader_id')
                                 <small class="text-danger">{{ $message }}</small>
                             @enderror

@@ -133,6 +133,15 @@ class OfficialController extends Controller
         return view('officials.show', compact('official'));
     }
 
+    public function digitalId(Official $official)
+    {
+        $this->authorize('officials.view');
+
+        $official->load(['resident', 'role', 'assignments.committee']);
+
+        return view('officials.digital-id', compact('official'));
+    }
+
     /**
      * Show the form for editing the specified resource.
      */

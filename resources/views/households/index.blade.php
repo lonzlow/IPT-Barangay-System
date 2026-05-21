@@ -26,9 +26,11 @@
         <a href="{{ route('households.statistics') }}" class="btn btn-outline-secondary d-flex align-items-center gap-2" style="border-radius:8px;font-size:13.5px;font-weight:600;padding:9px 18px;">
             <i class="bi bi-graph-up"></i> Statistics
         </a>
-        <button type="button" class="btn btn-primary d-flex align-items-center gap-2" data-household-action="create" style="border-radius:8px;font-size:13.5px;font-weight:600;padding:9px 18px;">
-            <i class="bi bi-plus-lg"></i> Add Household
-        </button>
+        @can('households.manage')
+            <button type="button" class="btn btn-primary d-flex align-items-center gap-2" data-household-action="create" style="border-radius:8px;font-size:13.5px;font-weight:600;padding:9px 18px;">
+                <i class="bi bi-plus-lg"></i> Add Household
+            </button>
+        @endcan
     </div>
 </div>
 
@@ -81,7 +83,7 @@
                         <input type="text" class="form-control" name="street" required>
                         <div class="invalid-feedback"></div>
                     </div>
-                    <div class="mb-3" id="headResidentWrap">
+                    <div class="mb-3 d-none" id="headResidentWrap">
                         <label class="form-label fw-600">Household Head</label>
                         <select name="head_resident_id" id="headResidentSelect" class="form-select">
                             <option value="">Unassigned</option>
@@ -105,16 +107,22 @@
 const householdModal = new bootstrap.Modal(document.getElementById('householdModal'));
 const householdForm = document.getElementById('householdForm');
 const alertContainer = document.getElementById('householdAlert');
-const axiosInstance = window.axios;
 let householdsTable = null;
 
-if (axiosInstance) {
-    axiosInstance.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-    axiosInstance.defaults.headers.common['Accept'] = 'application/json';
+function httpClient() {
+    if (!window.axios) {
+        showAlert('The page is still loading. Please try again in a moment.', 'warning');
+        return null;
+    }
+
+    window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+    window.axios.defaults.headers.common['Accept'] = 'application/json';
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     if (csrfToken) {
-        axiosInstance.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
+        window.axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
     }
+
+    return window.axios;
 }
 
 function showAlert(message, type = 'success') {
@@ -165,10 +173,12 @@ function initSelect2() {
 }
 
 function openCreateModal() {
+    if (!document.querySelector('[data-household-action="create"]')) return;
     householdForm.reset();
     clearValidation();
     document.getElementById('householdId').value = '';
     document.getElementById('householdModalTitle').textContent = 'Add Household';
+    document.getElementById('headResidentWrap').classList.add('d-none');
     resetHeadResidentOptions();
     $('#purokSelect').val('').trigger('change.select2');
     householdModal.show();
@@ -176,9 +186,13 @@ function openCreateModal() {
 
 async function openEditModal(id) {
     clearValidation();
+    const client = httpClient();
+    if (!client) return;
+
     try {
-        const response = await axiosInstance.get(`/households/${id}/edit`);
+        const response = await client.get(`/households/${id}/edit`);
         const data = response.data;
+        document.getElementById('headResidentWrap').classList.remove('d-none');
         document.getElementById('householdId').value = data.id;
         document.getElementById('householdModalTitle').textContent = 'Edit Household';
         householdForm.querySelector('[name="house_number"]').value = data.house_number || '';
@@ -193,8 +207,11 @@ async function openEditModal(id) {
 
 async function deleteHousehold(id) {
     if (!confirm('Delete this household? Residents must be reassigned first.')) return;
+    const client = httpClient();
+    if (!client) return;
+
     try {
-        const response = await axiosInstance.delete(`/households/${id}`);
+        const response = await client.delete(`/households/${id}`);
         showAlert(response.data?.message || 'Household deleted successfully.');
         householdsTable?.ajax.reload(null, false);
     } catch (error) {
@@ -210,13 +227,15 @@ householdForm.addEventListener('submit', async (event) => {
     const url = id ? `/households/${id}` : '/households';
     const method = id ? 'put' : 'post';
     const data = Object.fromEntries(new FormData(householdForm));
+    const client = httpClient();
+    if (!client) return;
 
     if (!id) {
         delete data.head_resident_id;
     }
 
     try {
-        const response = await axiosInstance({ method, url, data });
+        const response = await client({ method, url, data });
         showAlert(response.data?.message || 'Household saved successfully.');
         householdModal.hide();
         householdForm.reset();

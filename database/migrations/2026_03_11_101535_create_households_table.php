@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('households', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('purok_id')->constrained('puroks')->onDelete('cascade');
+            $table->foreignId('purok_id')->constrained('puroks')->restrictOnDelete();
             $table->string('house_number');
             $table->string('street');
             $table->integer('family_size');

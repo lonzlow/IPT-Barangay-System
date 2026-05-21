@@ -44,11 +44,16 @@
                         @error('street')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
 
+                    <div class="alert alert-info" style="border-radius:8px;font-size:13px;">
+                        <i class="bi bi-info-circle"></i>
+                        Assign the household head after residents have been added to this household.
+                    </div>
+
                     <div class="d-flex gap-2 pt-2">
                         <button type="submit" class="btn btn-primary" style="border-radius:8px;">
                             <i class="bi bi-check-circle"></i> Create Household
                         </button>
-                        <a href="{{ route('households.index') }}" class="btn btn-outline-secondary" style="border-radius:8px;">Cancel</a>
+                        <a href="{{ route('households.index') }}" class="btn btn-outline-secondary" style="border-radius:8px;">Back to Households</a>
                     </div>
                 </form>
             </div>

@@ -45,9 +45,26 @@
                             @enderror
                         </div>
 
-                        <div class="alert alert-info" style="border-radius:8px;font-size:13px;">
-                            <i class="bi bi-info-circle"></i>
-                            Assign a Purok leader after households and residents are linked to this Purok.
+                        {{-- Purok Leader --}}
+                        <div class="mb-4">
+                            <label class="form-label fw-600" style="font-size:14px;color:#1e293b;">
+                                <i class="bi bi-person-badge"></i> Purok Leader
+                            </label>
+                            <select name="leader_id" class="form-select form-select-lg" style="border-radius:8px;">
+                                <option value="">-- No Leader Assigned --</option>
+                                @foreach($residents as $resident)
+                                    <option value="{{ $resident->id }}" @selected(old('leader_id') == $resident->id)>
+                                        {{ $resident->first_name }} {{ $resident->last_name }}
+                                        @if($resident->household?->purok)
+                                            - {{ $resident->household->purok->purok_name }}
+                                        @endif
+                                    </option>
+                                @endforeach
+                            </select>
+                            <small style="color:#94a3b8;">Optional - choose any registered resident as the Purok leader.</small>
+                            @error('leader_id')
+                                <small class="text-danger">{{ $message }}</small>
+                            @enderror
                         </div>
 
                         {{-- Form Actions --}}
@@ -56,7 +73,7 @@
                                 <i class="bi bi-check-circle"></i> Create Purok
                             </button>
                             <a href="{{ route('puroks.index') }}" class="btn btn-outline-secondary" style="border-radius:8px;padding:10px 20px;">
-                                <i class="bi bi-x-circle"></i> Cancel
+                                <i class="bi bi-arrow-left"></i> Back to Puroks
                             </a>
                         </div>
                     </form>

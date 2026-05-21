@@ -9,12 +9,33 @@
         <div class="col-12">
             <div class="d-flex align-items-center justify-content-between">
                 <h1 class="fw-bold" style="font-size:28px;">Puroks Management</h1>
-                <a href="{{ route('puroks.create') }}" class="btn btn-primary" style="border-radius:8px;">
-                    <i class="bi bi-plus-circle"></i> Create Purok
-                </a>
+                <div class="d-flex gap-2">
+                    <a href="{{ route('households.index') }}" class="btn btn-outline-secondary" style="border-radius:8px;">
+                        <i class="bi bi-arrow-left"></i> Back to Households
+                    </a>
+                    @can('households.manage')
+                        <a href="{{ route('puroks.create') }}" class="btn btn-primary" style="border-radius:8px;">
+                            <i class="bi bi-plus-circle"></i> Create Purok
+                        </a>
+                    @endcan
+                </div>
             </div>
         </div>
     </div>
+
+    @if (session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            {{ session('success') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
+
+    @if (session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ session('error') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    @endif
 
     {{-- Statistics --}}
     <div class="row mb-4">
@@ -90,16 +111,20 @@
                                                     <a href="{{ route('puroks.show', $purok->id) }}" class="btn btn-sm btn-outline-primary" title="View">
                                                         <i class="bi bi-eye"></i>
                                                     </a>
-                                                    <a href="{{ route('puroks.edit', $purok->id) }}" class="btn btn-sm btn-outline-warning" title="Edit">
-                                                        <i class="bi bi-pencil"></i>
-                                                    </a>
-                                                    <form action="{{ route('puroks.destroy', $purok->id) }}" method="POST" style="display:inline;">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this purok?')">
-                                                            <i class="bi bi-trash"></i>
-                                                        </button>
-                                                    </form>
+                                                    @can('households.manage')
+                                                        <a href="{{ route('puroks.edit', $purok->id) }}" class="btn btn-sm btn-outline-warning" title="Edit">
+                                                            <i class="bi bi-pencil"></i>
+                                                        </a>
+                                                    @endcan
+                                                    @can('households.delete')
+                                                        <form action="{{ route('puroks.destroy', $purok->id) }}" method="POST" style="display:inline;">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Delete this purok?')">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    @endcan
                                                 </div>
                                             </td>
                                         </tr>
@@ -116,9 +141,11 @@
                                 <i class="bi bi-inbox"></i>
                             </div>
                             <p style="color:#94a3b8;margin-bottom:20px;">No puroks created yet.</p>
-                            <a href="{{ route('puroks.create') }}" class="btn btn-primary">
-                                <i class="bi bi-plus-circle"></i> Create First Purok
-                            </a>
+                            @can('households.manage')
+                                <a href="{{ route('puroks.create') }}" class="btn btn-primary">
+                                    <i class="bi bi-plus-circle"></i> Create First Purok
+                                </a>
+                            @endcan
                         </div>
                     @endif
                 </div>

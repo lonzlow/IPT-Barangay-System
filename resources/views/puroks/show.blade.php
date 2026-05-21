@@ -9,9 +9,11 @@
             <div class="d-flex align-items-center justify-content-between">
                 <h1 class="fw-bold" style="font-size:28px;">{{ $purok->purok_name }}</h1>
                 <div class="btn-group" role="group">
-                    <a href="{{ route('puroks.edit', $purok->id) }}" class="btn btn-warning">
-                        <i class="bi bi-pencil"></i> Edit
-                    </a>
+                    @can('households.manage')
+                        <a href="{{ route('puroks.edit', $purok->id) }}" class="btn btn-warning">
+                            <i class="bi bi-pencil"></i> Edit
+                        </a>
+                    @endcan
                     <a href="{{ route('puroks.index') }}" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-left"></i> Back
                     </a>
@@ -138,16 +140,20 @@
                         <i class="bi bi-gear"></i> Actions
                     </h5>
                     <div class="d-grid gap-2">
-                        <a href="{{ route('puroks.edit', $purok->id) }}" class="btn btn-outline-primary">
-                            <i class="bi bi-pencil"></i> Edit Purok
-                        </a>
-                        <form action="{{ route('puroks.destroy', $purok->id) }}" method="POST">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Delete this purok?')">
-                                <i class="bi bi-trash"></i> Delete
-                            </button>
-                        </form>
+                        @can('households.manage')
+                            <a href="{{ route('puroks.edit', $purok->id) }}" class="btn btn-outline-primary">
+                                <i class="bi bi-pencil"></i> Edit Purok
+                            </a>
+                        @endcan
+                        @can('households.delete')
+                            <form action="{{ route('puroks.destroy', $purok->id) }}" method="POST">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Delete this purok?')">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </form>
+                        @endcan
                     </div>
                 </div>
             </div>

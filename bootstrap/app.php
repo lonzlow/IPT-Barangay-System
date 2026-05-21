@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\AggregateDemographicReports;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -13,6 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
         $schedule->command('documents:expire')
             ->dailyAt('01:00')
+            ->withoutOverlapping();
+
+        $schedule->job(new AggregateDemographicReports)
+            ->dailyAt('02:00')
             ->withoutOverlapping();
     })
     ->withMiddleware(function (Middleware $middleware): void {

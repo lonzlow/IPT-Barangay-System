@@ -16,6 +16,27 @@ use Yajra\DataTables\Facades\DataTables;
 
 class BlotterController extends Controller
 {
+    private const EVIDENCE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'pdf', 'doc', 'docx', 'mp4', 'mov', 'avi', 'webm', 'mkv', 'mpeg', 'mpg'];
+
+    private const EVIDENCE_MIME_TYPES = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/gif',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'video/mp4',
+        'video/quicktime',
+        'video/x-msvideo',
+        'video/webm',
+        'video/x-matroska',
+        'video/mpeg',
+    ];
+
+    private const EVIDENCE_MAX_KB = 102400;
+    private const EVIDENCE_MAX_FILES = 5;
+
     private const STATUS_LABELS = [
         'pending' => 'Open',
         'under investigation' => 'Ongoing',
@@ -71,16 +92,21 @@ class BlotterController extends Controller
             })
             ->addColumn('action', function (Blotter $blotter) use ($canManage, $canDelete) {
                 $showUrl = route('blotters.show', $blotter);
+                $editUrl = route('blotters.edit', $blotter);
+                $deleteUrl = route('blotters.destroy', $blotter);
 
-                $actions = '<a href="' . e($showUrl) . '" class="btn btn-sm btn-light" title="View"><i class="bi bi-eye"></i></a>';
+                $actions = '<div class="btn-group btn-group-sm" role="group" aria-label="Blotter actions">';
+                $actions .= '<a href="' . e($showUrl) . '" class="btn btn-light" title="View"><i class="bi bi-eye"></i></a>';
 
                 if ($canManage) {
-                    $actions .= '<button type="button" class="btn btn-sm btn-light" data-blotter-action="edit" data-blotter-id="' . e($blotter->id) . '" title="Edit"><i class="bi bi-pencil"></i></button>';
+                    $actions .= '<button type="button" class="btn btn-light" data-blotter-action="edit" data-blotter-id="' . e($blotter->id) . '" data-blotter-edit-url="' . e($editUrl) . '" title="Edit"><i class="bi bi-pencil"></i></button>';
                 }
 
                 if ($canDelete) {
-                    $actions .= '<button type="button" class="btn btn-sm btn-light" data-blotter-action="delete" data-blotter-id="' . e($blotter->id) . '" title="Delete"><i class="bi bi-trash"></i></button>';
+                    $actions .= '<button type="button" class="btn btn-light" data-blotter-action="delete" data-blotter-id="' . e($blotter->id) . '" data-blotter-delete-url="' . e($deleteUrl) . '" title="Delete"><i class="bi bi-trash"></i></button>';
                 }
+
+                $actions .= '</div>';
 
                 return $actions;
             })
@@ -289,7 +315,7 @@ class BlotterController extends Controller
             ->firstOrFail();
 
         $validated = $request->validate([
-            'evidence' => ['required', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png,mp4,mov,avi,webm', 'max:51200'],
+            'evidence' => $this->evidenceValidationRules(required: true),
             'caption' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -332,8 +358,8 @@ class BlotterController extends Controller
             'witnesses.*.mode' => ['nullable', Rule::in(['resident', 'manual'])],
             'witnesses.*.resident_id' => ['nullable', 'exists:residents,id'],
             'witnesses.*.name' => ['nullable', 'string', 'max:255'],
-            'evidences' => ['nullable', 'array'],
-            'evidences.*' => ['file', 'mimes:pdf,doc,docx,jpg,jpeg,png,mp4,mov,avi,webm', 'max:51200'],
+            'evidences' => ['nullable', 'array', 'max:' . self::EVIDENCE_MAX_FILES],
+            'evidences.*' => $this->evidenceValidationRules(),
             'location' => ['nullable', 'string', 'max:255'],
             'incident_description' => ['required', 'string'],
             'incident_date' => ['required', 'date'],
@@ -382,6 +408,11 @@ class BlotterController extends Controller
                     default => 'primary',
                 },
             ]),
+            'blotterReferences' => $blotters->map(fn (Blotter $blotter) => [
+                'id' => $blotter->id,
+                'case_number' => $blotter->case_number,
+                'label' => trim($blotter->case_number . ' - ' . ($blotter->incident_title ?: 'Untitled incident')),
+            ])->values(),
         ];
     }
 
@@ -516,6 +547,17 @@ class BlotterController extends Controller
         }
     }
 
+    private function evidenceValidationRules(bool $required = false): array
+    {
+        return [
+            $required ? 'required' : 'nullable',
+            'file',
+            'mimes:' . implode(',', self::EVIDENCE_EXTENSIONS),
+            'mimetypes:' . implode(',', self::EVIDENCE_MIME_TYPES),
+            'max:' . self::EVIDENCE_MAX_KB,
+        ];
+    }
+
     private function fileCategory(?string $mimeType, string $extension): string
     {
         if (str_starts_with((string) $mimeType, 'image/')) {
@@ -564,16 +606,20 @@ class BlotterController extends Controller
 
     private function incidentType(Blotter $blotter): string
     {
-        $text = strtolower($blotter->incident_description . ' ' . $blotter->location);
+        if ($blotter->incident_title) {
+            return $blotter->incident_title;
+        }
+
+        $description = strtolower($blotter->incident_description);
 
         return match (true) {
-            str_contains($text, 'noise') => 'Noise',
-            str_contains($text, 'altercation'), str_contains($text, 'fight'), str_contains($text, 'physical') => 'Altercation',
-            str_contains($text, 'theft'), str_contains($text, 'steal'), str_contains($text, 'stolen') => 'Theft',
-            str_contains($text, 'damage'), str_contains($text, 'property') => 'Damage',
-            str_contains($text, 'domestic') => 'Domestic',
-            str_contains($text, 'trespass') => 'Trespass',
-            default => 'Other',
+            str_contains($description, 'noise') => 'Noise',
+            str_contains($description, 'altercation') || str_contains($description, 'physical') || str_contains($description, 'verbal') => 'Altercation',
+            str_contains($description, 'theft') => 'Theft',
+            str_contains($description, 'damage') => 'Damage',
+            str_contains($description, 'domestic') => 'Domestic',
+            str_contains($description, 'trespass') => 'Trespass',
+            default => 'N/A',
         };
     }
 

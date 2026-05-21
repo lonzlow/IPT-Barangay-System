@@ -77,6 +77,12 @@
 @if(session('success'))
     <div class="alert alert-success">{{ session('success') }}</div>
 @endif
+@if(session('error'))
+    <div class="alert alert-danger">{{ session('error') }}</div>
+@endif
+@if($errors->any())
+    <div class="alert alert-danger">{{ $errors->first() }}</div>
+@endif
 
 {{-- ── STAT WIDGETS ── --}}
 <div class="section-heading">Overview</div>
@@ -197,20 +203,23 @@
         <div class="section-heading">Backup & Restore</div>
         <div class="backup-card mb-3">
             <div class="d-flex align-items-center gap-3 mb-3">
-                <span class="backup-indicator bi-success"></span>
+                <span class="backup-indicator {{ $latest_backup ? 'bi-success' : 'bi-warning' }}"></span>
                 <div>
-                    <div style="font-size:13.5px;font-weight:700;color:#0f172a;">Last Backup Successful</div>
-                    <div style="font-size:12px;color:#64748b;">Feb 25, 2025 · 2:00 AM · Auto backup</div>
+                    <div style="font-size:13.5px;font-weight:700;color:#0f172a;">{{ $latest_backup ? 'Last Backup Successful' : 'No Backup Found' }}</div>
+                    <div style="font-size:12px;color:#64748b;">{{ $latest_backup['date'] ?? 'Create a backup before restoring this system.' }}</div>
                 </div>
             </div>
             <div style="font-size:12px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:10px;margin-bottom:14px;">
-                Backup size: <strong>84.2 MB</strong> &nbsp;·&nbsp; Storage: <strong>Google Drive</strong>
+                Backup size: <strong>{{ $latest_backup['size'] ?? '0 MB' }}</strong> &nbsp;�&nbsp; Storage: <strong>Local private disk</strong>
             </div>
             <div class="d-flex gap-2">
-                <button class="btn btn-primary flex-grow-1 d-flex align-items-center justify-content-center gap-2"
+                <form method="POST" action="{{ route('backups.store') }}" class="flex-grow-1">
+                    @csrf
+                <button type="submit" class="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2"
                         style="border-radius:8px;font-size:13px;font-weight:600;padding:9px;">
                     <i class="bi bi-cloud-upload-fill"></i> Backup Now
                 </button>
+                </form>
                 <button class="btn btn-outline-secondary d-flex align-items-center gap-1"
                         style="border-radius:8px;font-size:13px;font-weight:600;padding:9px 14px;">
                     <i class="bi bi-clock-history"></i> History
@@ -219,16 +228,21 @@
         </div>
 
         <div class="backup-card">
+            <form method="POST" action="{{ route('backups.restore') }}" enctype="multipart/form-data"
+                  onsubmit="return confirm('Restore this backup? This will overwrite the current database and storage files.');">
+            @csrf
             <div style="font-size:13.5px;font-weight:700;color:#0f172a;margin-bottom:4px;">Restore Database</div>
-            <div style="font-size:12px;color:#64748b;margin-bottom:14px;">Upload a backup file to restore the system to a previous state.</div>
+            <div style="font-size:12px;color:#64748b;margin-bottom:14px;">Upload a local backup ZIP to restore the database and application storage.</div>
             <div style="border: 2px dashed #cbd5e1; border-radius: 10px; padding: 18px; text-align: center; color: #94a3b8; font-size:13px; cursor:pointer; margin-bottom:12px;">
                 <i class="bi bi-cloud-arrow-up-fill" style="font-size:24px;display:block;margin-bottom:6px;"></i>
-                Drop backup file here or click to browse
+                Choose backup ZIP
+                <input type="file" name="backup_file" accept=".zip,application/zip" class="form-control mt-2" required>
             </div>
-            <button class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2"
+            <button type="submit" class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2"
                     style="border-radius:8px;font-size:13px;font-weight:600;padding:9px;">
                 <i class="bi bi-arrow-counterclockwise"></i> Restore from Backup
             </button>
+            </form>
         </div>
     </div>
 </div>
