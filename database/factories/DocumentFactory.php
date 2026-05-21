@@ -25,6 +25,7 @@ class DocumentFactory extends Factory
         return [
             'resident_id' => $resident,
             'document_template_id' => $template,
+            'business_id' => null,
             'reference_number' => 'BRG-' . now()->format('Ym') . '-' . str_pad($this->faker->numberBetween(1, 99999), 5, '0', STR_PAD_LEFT),
             'purpose' => $this->faker->randomElement([
                 'Employment',
@@ -36,6 +37,7 @@ class DocumentFactory extends Factory
                 'Education',
                 'Medical Assistance',
             ]),
+            'additional_notes' => null,
             'rendered_html' => '<p>Document rendered HTML here</p>',
             'issued_by' => $this->faker->randomElement([
                 'Hon. Sample Captain',

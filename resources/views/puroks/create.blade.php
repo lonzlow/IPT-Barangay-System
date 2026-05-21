@@ -45,23 +45,9 @@
                             @enderror
                         </div>
 
-                        {{-- Purok Leader --}}
-                        <div class="mb-4">
-                            <label class="form-label fw-600" style="font-size:14px;color:#1e293b;">
-                                <i class="bi bi-person-badge"></i> Purok Leader
-                            </label>
-                            <select name="leader_id" class="form-select form-select-lg" style="border-radius:8px;">
-                                <option value="">-- No Leader Assigned --</option>
-                                @foreach($residents as $resident)
-                                    <option value="{{ $resident->id }}" {{ old('leader_id') == $resident->id ? 'selected' : '' }}>
-                                        {{ $resident->first_name }} {{ $resident->last_name }}
-                                    </option>
-                                @endforeach
-                            </select>
-                            <small style="color:#94a3b8;">Optional - can be assigned later</small>
-                            @error('leader_id')
-                                <small class="text-danger">{{ $message }}</small>
-                            @enderror
+                        <div class="alert alert-info" style="border-radius:8px;font-size:13px;">
+                            <i class="bi bi-info-circle"></i>
+                            Assign a Purok leader after households and residents are linked to this Purok.
                         </div>
 
                         {{-- Form Actions --}}

@@ -47,7 +47,7 @@ class DocumentTemplateFactory extends Factory
         $template = $this->faker->randomElement($templates);
 
         return [
-            'name' => $template['name'],
+            'name' => $template['name'] . ' ' . $this->faker->unique()->numberBetween(1000, 9999),
             'description' => $template['description'],
             'template_html' => '<p>Sample template for ' . $template['name'] . '</p>',
             'fields_required' => ['resident_name', 'purpose', 'date_issued'],

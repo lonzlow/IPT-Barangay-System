@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Blotter extends Model
@@ -14,10 +15,9 @@ class Blotter extends Model
 
     protected $fillable = [
         'case_number',
+        'incident_title',
         'complainant_id',
         'complainant_name',
-        'respondent_id',
-        'respondent_name',
         'location',
         'incident_description',
         'incident_date',
@@ -37,6 +37,26 @@ class Blotter extends Model
     public function filedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'filed_by');
+    }
+
+    public function complainant_resident(): BelongsTo
+    {
+        return $this->belongsTo(Resident::class, 'complainant_id');
+    }
+
+    public function respondents(): HasMany
+    {
+        return $this->hasMany(BlotterRespondent::class, 'blotter_id');
+    }
+
+    public function witnesses(): HasMany
+    {
+        return $this->hasMany(BlotterWitness::class, 'blotter_id');
+    }
+
+    public function evidences(): HasMany
+    {
+        return $this->hasMany(BlotterEvidence::class, 'blotter_id');
     }
 
     /**

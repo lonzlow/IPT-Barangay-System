@@ -13,9 +13,13 @@ class BlotterEvidence extends Model
     /** @use HasFactory<\Database\Factories\BlotterEvidenceFactory> */
     use HasFactory, SoftDeletes;
 
+    protected $table = 'blotter_evidences';
+
     protected $fillable = [
         'blotter_id',
         'file_path',
+        'file_name',
+        'file_type',
         'file_extension',
         'mime_type',
         'file_category',

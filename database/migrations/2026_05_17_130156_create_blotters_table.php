@@ -21,7 +21,7 @@ return new class extends Migration
             $table->text('incident_description');
             $table->dateTime('incident_date');
             $table->foreignUuid('handled_by')->nullable()->constrained('officials'); // Still waiting for official to handle this case initially
-            $table->enum('status', ['open', 'ongoing', 'resolved', 'referred', 'dismissed'])->default('open');
+            $table->enum('status', ['pending', 'under investigation', 'resolved', 'referred', 'dismissed'])->default('pending');
             $table->foreignUuid('filed_by')->constrained('users')->restrictOnDelete();
             $table->timestamps();
             $table->softDeletes();

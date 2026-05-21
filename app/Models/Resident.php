@@ -41,17 +41,22 @@ class Resident extends Model
 
     public function head_household(): HasOne
     {
-        return $this->hasOne(Household::class);
+        return $this->hasOne(Household::class, 'head_resident_id');
     }
 
     public function purok_leader(): HasOne
     {
-        return $this->hasOne(Purok::class);
+        return $this->hasOne(Purok::class, 'leader_id');
     }
 
     public function business_owner(): HasOne
     {
         return $this->hasOne(BusinessOwner::class);
+    }
+
+    public function blotter_complainant(): HasMany
+    {
+        return $this->hasMany(Blotter::class, 'complainant_id');
     }
 
     public function blotter_respondents(): HasMany

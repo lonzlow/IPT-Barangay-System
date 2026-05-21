@@ -14,7 +14,10 @@ class ReportController extends Controller
     public function index()
     {
         $records = CommitteeRecord::with('committee')->paginate(15);
-        return view('reports.index', compact('records'));
+        $committees = Committee::orderBy('name')->get();
+        $recordTypes = CommitteeRecord::TYPES;
+
+        return view('reports.index', compact('records', 'committees', 'recordTypes'));
     }
 
     /**
@@ -23,7 +26,7 @@ class ReportController extends Controller
     public function create()
     {
         $committees = Committee::all();
-        $recordTypes = ['photo', 'video', 'activity', 'accomplishment', 'report', 'attendance', 'inventory', 'partnership', 'certificate'];
+        $recordTypes = CommitteeRecord::TYPES;
         return view('reports.create', compact('committees', 'recordTypes'));
     }
 
@@ -34,9 +37,15 @@ class ReportController extends Controller
     {
         $validated = $request->validate([
             'committee_id' => 'required|exists:committees,id',
-            'record_type' => 'required|in:photo,video,activity,accomplishment,report,attendance,inventory,partnership,certificate',
+            'record_type' => 'required|in:' . implode(',', array_keys(CommitteeRecord::TYPES)),
+            'category' => 'nullable|string|max:120',
             'title' => 'required|string',
             'description' => 'nullable|string',
+            'record_date' => 'nullable|date',
+            'quantity' => 'nullable|integer|min:0',
+            'amount' => 'nullable|numeric|min:0',
+            'partner_name' => 'nullable|string|max:255',
+            'status' => 'nullable|string|max:80',
             'file_path' => 'nullable|string',
             'recorded_at' => 'required|date',
         ]);
@@ -79,7 +88,7 @@ class ReportController extends Controller
             ]);
         }
         $committees = Committee::all();
-        $recordTypes = ['photo', 'video', 'activity', 'accomplishment', 'report', 'attendance', 'inventory', 'partnership', 'certificate'];
+        $recordTypes = CommitteeRecord::TYPES;
         return view('reports.edit', compact('record', 'committees', 'recordTypes'));
     }
 
@@ -90,9 +99,15 @@ class ReportController extends Controller
     {
         $validated = $request->validate([
             'committee_id' => 'required|exists:committees,id',
-            'record_type' => 'required|in:photo,video,activity,accomplishment,report,attendance,inventory,partnership,certificate',
+            'record_type' => 'required|in:' . implode(',', array_keys(CommitteeRecord::TYPES)),
+            'category' => 'nullable|string|max:120',
             'title' => 'required|string',
             'description' => 'nullable|string',
+            'record_date' => 'nullable|date',
+            'quantity' => 'nullable|integer|min:0',
+            'amount' => 'nullable|numeric|min:0',
+            'partner_name' => 'nullable|string|max:255',
+            'status' => 'nullable|string|max:80',
             'file_path' => 'nullable|string',
             'recorded_at' => 'required|date',
         ]);

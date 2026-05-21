@@ -18,6 +18,7 @@ class Business extends Model
         'business_name',
         'business_type',
         'business_address',
+        'date_established',
         'status',
     ];
 

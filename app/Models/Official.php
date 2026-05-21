@@ -59,7 +59,17 @@ class Official extends Model
 
     public function committees(): BelongsToMany
     {
-        return $this->belongsToMany(Committee::class, 'committee_id');
+        return $this->belongsToMany(Committee::class, 'official_assignments')
+            ->withPivot('designation')
+            ->withTimestamps();
+    }
+
+    /**
+     * Get signature images for this official
+     */
+    public function signatures(): HasMany
+    {
+        return $this->hasMany(\App\Models\Signature::class);
     }
 
     public function hasRole(string $roleName): bool

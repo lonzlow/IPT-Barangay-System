@@ -212,8 +212,8 @@
             @endcan
 
             @can('business.view')
-                <a href="{{ route('business.index') }}"
-                   class="nav-link {{ Request::routeIs('business.*') ? 'active' : '' }}">
+                <a href="{{ route('businesses.index') }}"
+                   class="nav-link {{ Request::routeIs('businesses.*') ? 'active' : '' }}">
                     <i class="bi bi-shop-window"></i> Business Permits
                 </a>
             @endcan

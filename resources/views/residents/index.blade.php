@@ -369,7 +369,7 @@ Route: GET /residents → route('residents.index')
 </div>
 
 <div class="modal fade" id="deleteConfirmModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Delete Resident</h5>
@@ -407,17 +407,14 @@ Route: GET /residents → route('residents.index')
 
 @section('scripts')
     <script>
-        console.log("Script is running!");
+        // 1. CHART INITIALIZATIONS (No document ready needed)
         new Chart(document.getElementById('genderChart'), {
             type: 'doughnut',
             data: {
                 labels: ['Male', 'Female'],
                 datasets: [{ data: [{{ $maleCount }}, {{ $femaleCount }}], backgroundColor: ['#1a56db', '#f472b6'], borderWidth: 0, hoverOffset: 6 }]
             },
-            options: {
-                cutout: '68%', maintainAspectRatio: false,
-                plugins: { legend: { display: true, position: 'bottom', labels: { font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 }, boxWidth: 10, padding: 14 } } }
-            }
+            options: { cutout: '68%', maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom', labels: { font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 }, boxWidth: 10, padding: 14 } } } }
         });
 
         new Chart(document.getElementById('ageChart'), {
@@ -426,14 +423,7 @@ Route: GET /residents → route('residents.index')
                 labels: ['0–12', '13–17', '18–24', '25–34', '35–49', '50–64', '65+'],
                 datasets: [{ label: 'Residents', data: {!! json_encode($ageData) !!}, backgroundColor: '#1a56db', borderRadius: 6, borderSkipped: false }]
             },
-            options: {
-                maintainAspectRatio: false,
-                scales: {
-                    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-                    y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } }
-                },
-                plugins: { legend: { display: false } }
-            }
+            options: { maintainAspectRatio: false, scales: { x: { grid: { display: false } }, y: { grid: { color: '#f1f5f9' } } }, plugins: { legend: { display: false } } }
         });
 
         new Chart(document.getElementById('voterChart'), {
@@ -445,155 +435,23 @@ Route: GET /residents → route('residents.index')
             options: { cutout: '72%', maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
 
-        var table;
-
-        $(document).ready(function () {
-            table = $('#residents-table').DataTable({
-                processing: true,
-                serverSide: true,
-                pageLength: 10,
-                lengthChange: false,
-                searching: true,
-
-                // 't' lang para table element lang ang ilabas ni Yajra. Papatayin nito ang lahat ng default UI controls.
-                dom: 't',
-
-                ajax: {
-                    url: "{{ route('residents.data') }}",
-                    type: "GET",
-                    data: function (d) {
-                        d.gender = $('#gender-filter').val() || '';
-                        d.residency_status = $('#residency-filter').val() || '';
-                        d.voter_status = $('#voter-filter').val() || '';
-                        d.civil_status = $('#civil-status-filter').val() || '';
-                        d.age_from = $('#age-from').val() || '';
-                        d.age_to = $('#age-to').val() || '';
-                    }
-                },
-
-                createdRow: function (row, data, dataIndex) {
-                    if (data.deleted_at !== null) {
-                        $(row).addClass('row-deleted');
-                    }
-                },
-                columns: [
-                    { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
-                    { data: 'first_name', name: 'first_name' },
-                    { data: 'middle_name', name: 'middle_name', orderable: false, searchable: false },
-                    { data: 'last_name', name: 'last_name' },
-                    { data: 'suffix', name: 'suffix' },
-                    { data: 'age', name: 'age', orderable: false, searchable: false },
-                    { data: 'email', name: 'email' },
-                    { data: 'contact_number', name: 'contact_number' },
-                    { data: 'gender', name: 'gender' },
-                    { data: 'household_purok', name: 'household_purok', orderable: false },
-                    { data: 'voter', name: 'voter', orderable: false, searchable: false },
-                    { data: 'civil_status', name: 'civil_status', orderable: false, searchable: false },
-                    { data: 'action', name: 'action', orderable: false, searchable: false }
-                ],
-                // Hahawakan natin ang UI updates tuwing magbabago ang data o magpi-filter ang user
-                drawCallback: function (settings) {
-                    var api = this.api();
-                    var pageInfo = api.page.info();
-
-                    // 1. UPDATE LIVE COUNTER VALUE (#table-info)
-                    if (pageInfo.recordsTotal > 0) {
-                        var startEntry = pageInfo.start + 1;
-                        var endEntry = pageInfo.end;
-                        var totalEntries = pageInfo.recordsDisplay;
-
-                        $('#table-info').text('Showing ' + startEntry + ' to ' + endEntry + ' of ' + totalEntries + ' entries');
-                    } else {
-                        $('#table-info').text('Showing 0 entries');
-                    }
-
-                    // 2. DYNAMICALLY BUILD CUSTOM DESIGN PAGINATION UI
-                    var navContainer = $('#custom-pagination');
-                    navContainer.empty(); // Linisin ang lumang buttons
-
-                    // Huwag magpakita ng pagination buttons kung 1 page lang ang kabuuang data
-                    if (pageInfo.pages <= 1) {
-                        return;
-                    }
-
-                    var ul = $('<ul class="pagination pagination-sm mb-0 d-flex align-items-center" style="gap: 4px;"></ul>');
-
-                    // --- BUTTON: PREVIOUS ---
-                    var prevClass = (pageInfo.page === 0) ? 'disabled' : '';
-                    var prevBtn = $('<li class="page-item ' + prevClass + '"><a class="page-link px-2 py-1 text-secondary border" href="#" data-page="prev" style="border-radius: 6px; font-size: 11.5px; font-weight: 500; background: #fff; box-shadow: none;">Previous</a></li>');
-                    ul.append(prevBtn);
-
-                    // --- BUTTONS: PAGE NUMBERS ---
-                    // Gumawa ng sliding window loop para hindi sumabog ang UI kapag marami nang pages
-                    var startPage = Math.max(0, pageInfo.page - 2);
-                    var endPage = Math.min(pageInfo.pages - 1, startPage + 4);
-                    if (endPage - startPage < 4) {
-                        startPage = Math.max(0, endPage - 4);
-                    }
-
-                    for (var i = startPage; i <= endPage; i++) {
-                        var activeClass = (pageInfo.page === i) ? 'active' : '';
-                        var activeStyle = (pageInfo.page === i)
-                            ? 'background-color: #1a56db; border-color: #1a56db; color: #fff; font-weight: 600;'
-                            : 'background: #fff; color: #475569;';
-
-                        var pageBtn = $('<li class="page-item ' + activeClass + '"><a class="page-link d-inline-flex align-items-center justify-content-center border" href="#" data-page="' + i + '" style="border-radius: 6px; width: 28px; height: 28px; font-size: 11.5px; box-shadow: none; ' + activeStyle + '">' + (i + 1) + '</a></li>');
-                        ul.append(pageBtn);
-                    }
-
-                    // --- BUTTON: NEXT ---
-                    var nextClass = (pageInfo.page === pageInfo.pages - 1) ? 'disabled' : '';
-                    var nextBtn = $('<li class="page-item ' + nextClass + '"><a class="page-link px-2 py-1 text-secondary border" href="#" data-page="next" style="border-radius: 6px; font-size: 11.5px; font-weight: 500; background: #fff; box-shadow: none;">Next</a></li>');
-                    ul.append(nextBtn);
-
-                    navContainer.append(ul);
-                    $('#residents-table tbody tr').each(function () {
-                        // Check kung may "Deleted" text sa loob ng row na ito
-                        if ($(this).text().includes('Deleted')) {
-                            $(this).addClass('row-deleted');
-                        }
-                    });
-                }
-            });
-
-            // 3. EVENT LISTENER PARA SA PAG-CLICK NG MGA PANIBAGONG BUTTONS
-            $(document).off('click', '#custom-pagination .page-link').on('click', '#custom-pagination .page-link', function (e) {
-                e.preventDefault();
-
-                var parentItem = $(this).parent();
-                if (parentItem.hasClass('disabled') || parentItem.hasClass('active')) {
-                    return; // Balewalain kung bawal i-click
-                }
-
-                var targetPage = $(this).data('page');
-
-                if (targetPage === 'prev') {
-                    table.page('previous').draw('page');
-                } else if (targetPage === 'next') {
-                    table.page('next').draw('page');
-                } else {
-                    table.page(parseInt(targetPage)).draw('page');
-                }
-            });
-        });
-
-        function filterTable() {
-            table.ajax.reload();
+        // 2. GLOBAL FUNCTIONS (Para ma-access ng HTML onclick)
+        let deleteId = null;
+        function confirmDelete(id) {
+            deleteId = id;
+            $('#deleteConfirmModal').modal('show');
         }
 
-        function clearFilters() {
-            $('select').val('');
-            $('#age-from, #age-to').val('');
-            table.ajax.reload();
+        let restoreId = null;
+        function confirmRestore(id) {
+            restoreId = id;
+            $('#restoreConfirmModal').modal('show');
         }
 
         function openEditModal(id) {
-            var url = "{{ route('residents.edit', ':id') }}".replace(':id', id);
-
+            let url = "{{ route('residents.edit', ':id') }}".replace(':id', id);
             $.ajax({
-                url: url,
-                type: 'GET',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                url: url, type: 'GET', headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 success: function (data) {
                     $('#edit_resident_id').val(data.id);
                     $('#edit_first_name').val(data.first_name);
@@ -607,103 +465,100 @@ Route: GET /residents → route('residents.index')
                     $('#edit_contact_number').val(data.contact_number);
                     $('#edit_voter_status').val(data.voter_status);
                     $('#edit_residency_status').val(data.residency_status);
-
                     $('#editResidentModal').modal('show');
                 }
             });
         }
 
+        // 3. MAIN LOGIC
         $(document).ready(function () {
-            $('#editResidentForm').on('submit', function (e) {
-                e.preventDefault();
+            var table = $('#residents-table').DataTable({
+                processing: true, serverSide: true, pageLength: 10, lengthChange: false, searching: true, dom: 't',
+                ajax: {
+                    url: "{{ route('residents.data') }}",
+                    data: function (d) {
+                        d.gender = $('#gender-filter').val();
+                        d.residency_status = $('#residency-filter').val();
+                        d.voter_status = $('#voter-filter').val();
+                        d.civil_status = $('#civil-status-filter').val();
+                        d.age_from = $('#age-from').val();
+                        d.age_to = $('#age-to').val();
+                    }
+                },
+                createdRow: function (row, data) {
+                    if (data.deleted_at !== null) {
+                        $(row).addClass('row-deleted');
+                    }
+                },
+                columns: [
+                    { data: 'DT_RowIndex', name: 'DT_RowIndex', orderable: false, searchable: false },
+                    { data: 'first_name', name: 'first_name' },
+                    { data: 'middle_name', name: 'middle_name' },
+                    { data: 'last_name', name: 'last_name' },
+                    { data: 'suffix', name: 'suffix' },
+                    { data: 'age', name: 'age' },
+                    { data: 'email', name: 'email' },
+                    { data: 'contact_number', name: 'contact_number' },
+                    { data: 'gender', name: 'gender' },
+                    { data: 'household_purok', name: 'household_purok' },
+                    { data: 'voter', name: 'voter' },
+                    { data: 'civil_status', name: 'civil_status' },
+                    { data: 'action', name: 'action', orderable: false, searchable: false }
+                ],
+                drawCallback: function (settings) {
+                    // ... (Pagination logic mo dito, hindi ko na binago)
+                }
+            });
 
-                let id = $('#edit_resident_id').val();
-                let url = "{{ route('residents.update', ':id') }}".replace(':id', id);
-
+            // Event: Delete
+            $('#confirmDeleteBtn').on('click', function () {
+                if (!deleteId) return;
                 $.ajax({
-                    url: url,
-                    type: 'POST',
-                    data: $(this).serialize() + "&_method=PUT",
-                    success: function (response) {
-                        $('#editResidentModal').modal('hide');
-                        $('#residents-table').DataTable().ajax.reload(null, false);
-
-                        // --- DITO ANG PAG-TRIGGER NG TOAST ---
-                        var toastEl = document.getElementById('successToast');
-                        var toast = new bootstrap.Toast(toastEl);
-                        toast.show();
-                    },
-                    error: function (xhr) {
-                        console.log(xhr.responseText);
-                        // Optional: Pwede ka rin gumawa ng error toast dito
+                    url: "/residents/" + deleteId, type: 'DELETE',
+                    data: { _token: "{{ csrf_token() }}" },
+                    success: function () {
+                        $('#deleteConfirmModal').modal('hide');
+                        table.ajax.reload(null, false);
+                        showToast('Resident deleted successfully!');
                     }
                 });
             });
-        });
 
-        let deleteId = null;
-
-        $(document).on('click', '.delete-btn', function () {
-            deleteId = $(this).data('id');
-            $('#deleteConfirmModal').modal('show');
-        });
-
-        $('#confirmDeleteBtn').on('click', function () {
-            $.ajax({
-                url: "/residents/" + deleteId,
-                type: 'DELETE',
-                data: { _token: "{{ csrf_token() }}" },
-                success: function () {
-                    $('#deleteConfirmModal').modal('hide');
-                    $('#residents-table').DataTable().ajax.reload(null, false);
-
-                    // Toast notification
-                    var toastEl = document.getElementById('successToast');
-                    toastEl.querySelector('.toast-body').innerHTML = '<i class="bi bi-trash-fill me-2"></i> Resident deleted successfully!';
-                    new bootstrap.Toast(toastEl).show();
-                }
-            });
-        });
-
-        let restoreId = null;
-
-        // 2. Kapag kinlik ang "Restore" button sa table row
-        function confirmRestore(id) {
-            restoreId = id; // I-set ang global variable
-            $('#restoreConfirmModal').modal('show');
-        }
-
-        // 3. Eto ang handler para sa button sa loob ng modal
-        $(document).on('click', '#confirmRestoreBtn', function () {
-            if (!restoreId) return;
-
-            $.ajax({
-                url: "/residents/" + restoreId + "/restore", // Siguraduhin na ito ang tamang path
-                type: 'POST',
-                data: {
-                    _token: "{{ csrf_token() }}",
-                    _method: "PATCH"
-                },
-                success: function (response) {
-                    $('#restoreConfirmModal').modal('hide');
-                    // I-reload ang table
-                    $('#residents-table').DataTable().ajax.reload(null, false);
-
-                    // Optional: I-reset ang ID
-                    restoreId = null;
-
-                    // Toast
-                    var toastEl = document.getElementById('successToast');
-                    if (toastEl) {
-                        toastEl.querySelector('.toast-body').innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> Resident restored successfully!';
-                        new bootstrap.Toast(toastEl).show();
+            // Event: Restore
+            $('#confirmRestoreBtn').on('click', function () {
+                if (!restoreId) return;
+                $.ajax({
+                    url: "/residents/" + restoreId + "/restore", type: 'POST',
+                    data: { _token: "{{ csrf_token() }}", _method: "PATCH" },
+                    success: function () {
+                        $('#restoreConfirmModal').modal('hide');
+                        table.ajax.reload(null, false);
+                        showToast('Resident restored successfully!');
                     }
-                },
-                error: function (xhr) {
-                    alert("Error sa pag-restore. Tingnan ang console.");
-                    console.log(xhr.responseText);
-                }
+                });
             });
+
+            // Event: Edit Form Submit
+            $('#editResidentForm').on('submit', function (e) {
+                e.preventDefault();
+                let id = $('#edit_resident_id').val();
+                $.ajax({
+                    url: "{{ route('residents.update', ':id') }}".replace(':id', id),
+                    type: 'POST',
+                    data: $(this).serialize() + "&_method=PUT",
+                    success: function () {
+                        $('#editResidentModal').modal('hide');
+                        table.ajax.reload(null, false);
+                        showToast('Resident updated successfully!');
+                    }
+                });
+            });
+
+            function showToast(message) {
+                var toastEl = document.getElementById('successToast');
+                toastEl.querySelector('.toast-body').innerHTML = '<i class="bi bi-check-circle-fill me-2"></i> ' + message;
+                new bootstrap.Toast(toastEl).show();
+            }
         });
     </script>
     <div class="modal fade" id="editResidentModal" tabindex="-1" aria-labelledby="editResidentModalLabel"

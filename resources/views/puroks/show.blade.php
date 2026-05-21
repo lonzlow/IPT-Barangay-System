@@ -85,10 +85,10 @@
                                                 {{ $household->head_resident?->first_name ?? 'Unassigned' }}
                                                 {{ $household->head_resident?->last_name ?? '' }}
                                             </td>
-                                            <td style="padding:12px;">{{ $household->family_size }}</td>
+                                            <td style="padding:12px;">{{ $household->residents->count() }}</td>
                                             <td style="padding:12px;">
                                                 <span class="badge" style="background-color:#dbeafe;color:#0369a1;">
-                                                    {{ $household->residents()->count() }}
+                                                    {{ $household->residents->count() }}
                                                 </span>
                                             </td>
                                         </tr>

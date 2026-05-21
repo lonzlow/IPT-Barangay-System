@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('business_name');
             $table->string('business_type');
             $table->mediumText('business_address');
+            $table->date('date_established');
             $table->enum('status', ['Active','Inactive','Closed'])->default('Active');
             $table->timestamps();
             $table->softDeletes();
