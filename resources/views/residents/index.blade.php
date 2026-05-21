@@ -141,7 +141,7 @@ Route: GET /residents → route('residents.index')
             <div class="stat-card d-flex align-items-center gap-3 h-100">
                 <div class="stat-icon si-blue"><i class="bi bi-people-fill"></i></div>
                 <div>
-                    <div class="stat-value">{{ number_format($totalResidents) }}</div>
+                    <div class="stat-value" id="stat-total">{{ number_format($totalResidents) }}</div>
                     <div class="stat-label">Total Residents</div>
                 </div>
             </div>
@@ -151,7 +151,7 @@ Route: GET /residents → route('residents.index')
             <div class="stat-card d-flex align-items-center gap-3 h-100">
                 <div class="stat-icon si-green"><i class="bi bi-person-check-fill"></i></div>
                 <div>
-                    <div class="stat-value">{{ number_format($activeCount) }}</div>
+                    <div class="stat-value" id="stat-active">{{ number_format($activeCount) }}</div>
                     <div class="stat-label">Active Residents</div>
                     <span class="stat-badge badge-active">{{ $activePercentage }}%</span>
                 </div>
@@ -162,7 +162,7 @@ Route: GET /residents → route('residents.index')
             <div class="stat-card d-flex align-items-center gap-3 h-100">
                 <div class="stat-icon si-red"><i class="bi bi-person-dash-fill"></i></div>
                 <div>
-                    <div class="stat-value">{{ number_format($deceasedCount) }}</div>
+                    <div class="stat-value" id="stat-deceased">{{ number_format($deceasedCount) }}</div>
                     <div class="stat-label">Deceased</div>
                     <span class="stat-badge badge-deceased">{{ $deceasedPercentage }}%</span>
                 </div>
@@ -173,7 +173,7 @@ Route: GET /residents → route('residents.index')
             <div class="stat-card d-flex align-items-center gap-3 h-100">
                 <div class="stat-icon si-amber"><i class="bi bi-person-walking"></i></div>
                 <div>
-                    <div class="stat-value">{{ number_format($transferredCount) }}</div>
+                    <div class="stat-value" id="stat-transferred">{{ number_format($transferredCount) }}</div>
                     <div class="stat-label">Transferred</div>
                     <span class="stat-badge badge-transfer">{{ $transferredPercentage }}%</span>
                 </div>
@@ -407,32 +407,37 @@ Route: GET /residents → route('residents.index')
 
 @section('scripts')
     <script>
-        // 1. CHART INITIALIZATIONS (No document ready needed)
-        new Chart(document.getElementById('genderChart'), {
-            type: 'doughnut',
-            data: {
-                labels: ['Male', 'Female'],
-                datasets: [{ data: [{{ $maleCount }}, {{ $femaleCount }}], backgroundColor: ['#1a56db', '#f472b6'], borderWidth: 0, hoverOffset: 6 }]
-            },
-            options: { cutout: '68%', maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom', labels: { font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 }, boxWidth: 10, padding: 14 } } } }
-        });
 
-        new Chart(document.getElementById('ageChart'), {
-            type: 'bar',
-            data: {
-                labels: ['0–12', '13–17', '18–24', '25–34', '35–49', '50–64', '65+'],
-                datasets: [{ label: 'Residents', data: {!! json_encode($ageData) !!}, backgroundColor: '#1a56db', borderRadius: 6, borderSkipped: false }]
-            },
-            options: { maintainAspectRatio: false, scales: { x: { grid: { display: false } }, y: { grid: { color: '#f1f5f9' } } }, plugins: { legend: { display: false } } }
-        });
+        let genderChart, ageChart, voterChart;
 
-        new Chart(document.getElementById('voterChart'), {
-            type: 'doughnut',
-            data: {
-                labels: ['Registered', 'Not Registered'],
-                datasets: [{ data: [{{ $registeredVoters }}, {{ $unregisteredVoters }}], backgroundColor: ['#1a56db', '#e2e8f0'], borderWidth: 0, hoverOffset: 4 }]
-            },
-            options: { cutout: '72%', maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        $(document).ready(function () {
+            // 1. CHART INITIALIZATIONS (No document ready needed)
+            genderChart = new Chart(document.getElementById('genderChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Male', 'Female'],
+                    datasets: [{ data: [{{ $maleCount }}, {{ $femaleCount }}], backgroundColor: ['#1a56db', '#f472b6'], borderWidth: 0, hoverOffset: 6 }]
+                },
+                options: { cutout: '68%', maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom', labels: { font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 }, boxWidth: 10, padding: 14 } } } }
+            });
+
+            ageChart = new Chart(document.getElementById('ageChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['0–12', '13–17', '18–24', '25–34', '35–49', '50–64', '65+'],
+                    datasets: [{ label: 'Residents', data: {!! json_encode($ageData) !!}, backgroundColor: '#1a56db', borderRadius: 6, borderSkipped: false }]
+                },
+                options: { maintainAspectRatio: false, scales: { x: { grid: { display: false } }, y: { grid: { color: '#f1f5f9' } } }, plugins: { legend: { display: false } } }
+            });
+
+            voterChart = new Chart(document.getElementById('voterChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Registered', 'Not Registered'],
+                    datasets: [{ data: [{{ $registeredVoters }}, {{ $unregisteredVoters }}], backgroundColor: ['#1a56db', '#e2e8f0'], borderWidth: 0, hoverOffset: 4 }]
+                },
+                options: { cutout: '72%', maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
         });
 
         // 2. GLOBAL FUNCTIONS (Para ma-access ng HTML onclick)
@@ -506,7 +511,45 @@ Route: GET /residents → route('residents.index')
                     { data: 'action', name: 'action', orderable: false, searchable: false }
                 ],
                 drawCallback: function (settings) {
-                    // ... (Pagination logic mo dito, hindi ko na binago)
+                    var api = this.api();
+                    var pageInfo = api.page.info();
+
+                    // 1. UPDATE LIVE COUNTER
+                    if (pageInfo.recordsTotal > 0) {
+                        var startEntry = pageInfo.start + 1;
+                        var endEntry = pageInfo.end;
+                        var totalEntries = pageInfo.recordsDisplay;
+                        $('#table-info').text('Showing ' + startEntry + ' to ' + endEntry + ' of ' + totalEntries + ' entries');
+                    } else {
+                        $('#table-info').text('Showing 0 entries');
+                    }
+
+                    // 2. CUSTOM PAGINATION UI
+                    var navContainer = $('#custom-pagination');
+                    navContainer.empty();
+                    if (pageInfo.pages <= 1) return;
+
+                    var ul = $('<ul class="pagination pagination-sm mb-0 d-flex align-items-center" style="gap: 4px;"></ul>');
+                    var prevClass = (pageInfo.page === 0) ? 'disabled' : '';
+                    ul.append($('<li class="page-item ' + prevClass + '"><a class="page-link px-2 py-1 text-secondary border" href="#" data-page="prev" style="border-radius: 6px; font-size: 11.5px; font-weight: 500; background: #fff; box-shadow: none;">Previous</a></li>'));
+
+                    var startPage = Math.max(0, pageInfo.page - 2);
+                    var endPage = Math.min(pageInfo.pages - 1, startPage + 4);
+                    if (endPage - startPage < 4) startPage = Math.max(0, endPage - 4);
+
+                    for (var i = startPage; i <= endPage; i++) {
+                        var activeClass = (pageInfo.page === i) ? 'active' : '';
+                        var activeStyle = (pageInfo.page === i) ? 'background-color: #1a56db; border-color: #1a56db; color: #fff; font-weight: 600;' : 'background: #fff; color: #475569;';
+                        ul.append($('<li class="page-item ' + activeClass + '"><a class="page-link d-inline-flex align-items-center justify-content-center border" href="#" data-page="' + i + '" style="border-radius: 6px; width: 28px; height: 28px; font-size: 11.5px; box-shadow: none; ' + activeStyle + '">' + (i + 1) + '</a></li>'));
+                    }
+
+                    var nextClass = (pageInfo.page === pageInfo.pages - 1) ? 'disabled' : '';
+                    ul.append($('<li class="page-item ' + nextClass + '"><a class="page-link px-2 py-1 text-secondary border" href="#" data-page="next" style="border-radius: 6px; font-size: 11.5px; font-weight: 500; background: #fff; box-shadow: none;">Next</a></li>'));
+                    navContainer.append(ul);
+
+                    $('#residents-table tbody tr').each(function () {
+                        if ($(this).text().includes('Deleted')) $(this).addClass('row-deleted');
+                    });
                 }
             });
 
@@ -519,6 +562,7 @@ Route: GET /residents → route('residents.index')
                     success: function () {
                         $('#deleteConfirmModal').modal('hide');
                         table.ajax.reload(null, false);
+                        refreshDashboard();
                         showToast('Resident deleted successfully!');
                     }
                 });
@@ -533,6 +577,7 @@ Route: GET /residents → route('residents.index')
                     success: function () {
                         $('#restoreConfirmModal').modal('hide');
                         table.ajax.reload(null, false);
+                        refreshDashboard();
                         showToast('Resident restored successfully!');
                     }
                 });
@@ -549,6 +594,7 @@ Route: GET /residents → route('residents.index')
                     success: function () {
                         $('#editResidentModal').modal('hide');
                         table.ajax.reload(null, false);
+                        refreshDashboard();
                         showToast('Resident updated successfully!');
                     }
                 });
@@ -560,6 +606,35 @@ Route: GET /residents → route('residents.index')
                 new bootstrap.Toast(toastEl).show();
             }
         });
+
+        // Function para i-update ang lahat
+        function refreshDashboard() {
+            $.get("{{ route('residents.stats.refresh') }}", function (data) {
+                // 1. Update Numbers
+                $('#stat-total').text(data.totalResidents);
+                $('#stat-active').text(data.activeCount);
+                $('#stat-deceased').text(data.deceasedCount);
+                $('#stat-transferred').text(data.transferredCount);
+
+                // Update Badges
+                $('.badge-active').text(data.activePercentage + '%');
+                $('.badge-deceased').text(data.deceasedPercentage + '%');
+                $('.badge-transfer').text(data.transferredPercentage + '%');
+
+                // 2. Update Charts (Assuming genderChart, ageChart, voterChart are global)
+                genderChart.data.datasets[0].data = data.genderData;
+                genderChart.update();
+
+                ageChart.data.datasets[0].data = data.ageData;
+                ageChart.update();
+
+                voterChart.data.datasets[0].data = data.voterData;
+                voterChart.update();
+
+                // 3. Update Table Header Counter
+                $('.table-header .heading .badge').text(data.totalResidents);
+            });
+        }
     </script>
     <div class="modal fade" id="editResidentModal" tabindex="-1" aria-labelledby="editResidentModalLabel"
         aria-hidden="true">

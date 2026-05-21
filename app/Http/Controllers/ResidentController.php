@@ -170,6 +170,14 @@ class ResidentController extends Controller
      */
     public function destroy(string $id)
     {
+        $user = auth()->user();
+
+        $userResidentId = $user->official ? $user->official->resident_id : null;
+
+        if ($userResidentId && $userResidentId == $id) {
+            return response()->json(['error' => 'Hindi mo maaaring i-delete ang sarili mong account.'], 403);
+        }
+
         $resident = Resident::findOrFail($id);
         $resident->delete();
 
@@ -274,14 +282,19 @@ class ResidentController extends Controller
                 }
             })
             ->addColumn('action', function ($resident) use ($isAdminOrSecretary) {
-                // Edit button - lalabas lang kung HINDI deleted
+                $user = auth()->user();
+
+                $userResidentId = $user->official ? $user->official->resident_id : null;
+
                 $editBtn = !$resident->trashed()
                     ? '<button type="button" class="btn btn-sm btn-light border" style="border-radius:6px;padding:3px 8px;" onclick="openEditModal(\'' . $resident->id . '\')" title="Edit"><i class="bi bi-pencil" style="font-size:13px;"></i></button>'
                     : '';
 
                 $actionBtn = '';
 
-                if ($isAdminOrSecretary) {
+                $isSelf = ($userResidentId && $userResidentId == $resident->id);
+
+                if ($isAdminOrSecretary && !$isSelf) {
                     if ($resident->trashed()) {
                         // Kung deleted: Restore button lang
                         $actionBtn = '<button type="button" class="btn btn-sm btn-light text-success border" style="border-radius:6px;padding:3px 8px;" onclick="confirmRestore(\'' . $resident->id . '\')" title="Restore"><i class="bi bi-arrow-counterclockwise" style="font-size:13px;"></i></button>';
@@ -375,5 +388,55 @@ class ResidentController extends Controller
 
         $pdf = PDF::loadView('residents.export-pdf', $data);
         return $pdf->download('residents-list-' . now()->format('Y-m-d-His') . '.pdf');
+    }
+
+    // Sa loob ng ResidentController class
+
+    public function getDashboardStats()
+    {
+        $totalResidents = Resident::count();
+        $activeCount = Resident::where('residency_status', 'Active')->count();
+        $deceasedCount = Resident::where('residency_status', 'Deceased')->count();
+        $transferredCount = Resident::where('residency_status', 'Transferred')->count();
+
+        // Percentages
+        $activePercentage = $totalResidents > 0 ? number_format(($activeCount / $totalResidents) * 100, 1) : 0;
+        $deceasedPercentage = $totalResidents > 0 ? number_format(($deceasedCount / $totalResidents) * 100, 1) : 0;
+        $transferredPercentage = $totalResidents > 0 ? number_format(($transferredCount / $totalResidents) * 100, 1) : 0;
+
+        // Gender (Active Only)
+        $maleCount = Resident::where('residency_status', 'Active')->where('gender', 'Male')->count();
+        $femaleCount = Resident::where('residency_status', 'Active')->where('gender', 'Female')->count();
+
+        // Age Data
+        $ageGroups = ['0-12', '13-17', '18-24', '25-34', '35-49', '50-64', '65+'];
+        $ageData = [];
+        foreach ($ageGroups as $group) {
+            $range = explode('-', str_replace('+', '', $group));
+            $query = Resident::query();
+            if ($group === '65+') {
+                $query->whereRaw("TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= 65");
+            } else {
+                $query->whereRaw("TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN ? AND ?", [$range[0], $range[1]]);
+            }
+            $ageData[] = $query->count();
+        }
+
+        // Voter Status
+        $registeredVoters = Resident::whereRaw("TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= 18")->where('voter_status', 'Registered')->count();
+        $unregisteredVoters = Resident::whereRaw("TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= 18")->where('voter_status', 'Unregistered')->count();
+
+        return response()->json([
+            'totalResidents' => number_format($totalResidents),
+            'activeCount' => number_format($activeCount),
+            'deceasedCount' => number_format($deceasedCount),
+            'transferredCount' => number_format($transferredCount),
+            'activePercentage' => $activePercentage,
+            'deceasedPercentage' => $deceasedPercentage,
+            'transferredPercentage' => $transferredPercentage,
+            'genderData' => [$maleCount, $femaleCount],
+            'ageData' => $ageData,
+            'voterData' => [$registeredVoters, $unregisteredVoters]
+        ]);
     }
 }
