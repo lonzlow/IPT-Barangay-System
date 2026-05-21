@@ -28,21 +28,20 @@
             @csrf
 
             <div class="row g-3">
-                <div class="col-md-3">
-                    <label class="form-label">First Name</label>
-                    <input type="text" name="first_name" class="form-control" value="{{ old('first_name') }}" required>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Middle Name</label>
-                    <input type="text" name="middle_name" class="form-control" value="{{ old('middle_name') }}">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Last Name</label>
-                    <input type="text" name="last_name" class="form-control" value="{{ old('last_name') }}" required>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Suffix</label>
-                    <input type="text" name="suffix" class="form-control" value="{{ old('suffix') }}">
+                <div class="col-md-6">
+                    <label class="form-label">Linked Official</label>
+                    <select name="official_id" class="form-select" required>
+                        <option value="">Select official</option>
+                        @foreach($officials as $official)
+                            @php
+                                $resident = $official->resident;
+                                $name = $resident ? trim($resident->last_name . ', ' . $resident->first_name . ' ' . $resident->middle_name . ' ' . $resident->suffix) : $official->official_number;
+                            @endphp
+                            <option value="{{ $official->id }}" @selected(old('official_id') == $official->id)>
+                                {{ $name }} ({{ $official->role?->role_name ?? 'No role' }})
+                            </option>
+                        @endforeach
+                    </select>
                 </div>
 
                 <div class="col-md-6">
@@ -53,7 +52,7 @@
                 <div class="col-md-6">
                     <label class="form-label">Role</label>
                     <select name="role_id" class="form-select">
-                        <option value="">No Role</option>
+                        <option value="">Keep official role</option>
                         @foreach($roles as $role)
                             <option value="{{ $role->id }}" @selected(old('role_id') == $role->id)>{{ $role->role_name }}</option>
                         @endforeach

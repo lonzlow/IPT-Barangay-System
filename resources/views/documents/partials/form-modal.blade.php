@@ -23,15 +23,9 @@
                         <label class="form-label fw-600" style="font-size:13px;color:#1e293b;">
                             <i class="bi bi-person"></i> Resident
                         </label>
-                        <select name="resident_id" class="form-select" id="residentSelect" style="border-radius:8px;font-size:13px;" required>
-                            <option value="">-- Select Resident --</option>
-                            @foreach($residents as $resident)
-                                <option value="{{ $resident->id }}">
-                                    {{ $resident->first_name }} {{ $resident->last_name }} 
-                                    ({{ $resident->household?->purok?->purok_name ?? 'N/A' }})
-                                </option>
-                            @endforeach
-                        </select>
+                        <input type="hidden" name="resident_id" id="residentIdInput" required>
+                        <input type="text" class="form-control" id="residentSearchInput" style="border-radius:8px;font-size:13px;" placeholder="Type a resident name or number" autocomplete="off">
+                        <select id="residentResults" class="form-select d-none mt-2" size="5"></select>
                         <small class="text-danger d-none" id="resident_id-error"></small>
                     </div>
 

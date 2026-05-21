@@ -13,6 +13,8 @@ class ReportController extends Controller
      */
     public function index()
     {
+        $this->authorize('reports.view');
+
         $records = CommitteeRecord::with('committee')->paginate(15);
         $committees = Committee::orderBy('name')->get();
         $recordTypes = CommitteeRecord::TYPES;
@@ -25,6 +27,8 @@ class ReportController extends Controller
      */
     public function create()
     {
+        $this->authorize('committee-records.manage');
+
         $committees = Committee::all();
         $recordTypes = CommitteeRecord::TYPES;
         return view('reports.create', compact('committees', 'recordTypes'));
@@ -35,6 +39,8 @@ class ReportController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('committee-records.manage');
+
         $validated = $request->validate([
             'committee_id' => 'required|exists:committees,id',
             'record_type' => 'required|in:' . implode(',', array_keys(CommitteeRecord::TYPES)),
@@ -67,6 +73,8 @@ class ReportController extends Controller
      */
     public function show(CommitteeRecord $record)
     {
+        $this->authorize('reports.view');
+
         if (request()->expectsJson()) {
             return response()->json([
                 'success' => true,
@@ -81,6 +89,8 @@ class ReportController extends Controller
      */
     public function edit(CommitteeRecord $record)
     {
+        $this->authorize('committee-records.manage');
+
         if (request()->expectsJson()) {
             return response()->json([
                 'success' => true,
@@ -97,6 +107,8 @@ class ReportController extends Controller
      */
     public function update(Request $request, CommitteeRecord $record)
     {
+        $this->authorize('committee-records.manage');
+
         $validated = $request->validate([
             'committee_id' => 'required|exists:committees,id',
             'record_type' => 'required|in:' . implode(',', array_keys(CommitteeRecord::TYPES)),
@@ -129,6 +141,8 @@ class ReportController extends Controller
      */
     public function destroy(CommitteeRecord $record, Request $request)
     {
+        $this->authorize('committee-records.manage');
+
         $record->delete();
 
         if ($request->expectsJson()) {

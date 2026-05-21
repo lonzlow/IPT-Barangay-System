@@ -140,6 +140,7 @@
                             <th>First Name</th>
                             <th>M.I.</th>
                             <th>Last Name</th>
+                            <th>Role</th>
                             <th>Email</th>
                             <th>Status</th>
                             <th>Last Login</th>
@@ -261,6 +262,7 @@
                     {data: 'first_name', name: 'first_name'},
                     {data: 'middle_name', name: 'middle_name'},
                     {data: 'last_name', name: 'last_name'},
+                    {data: 'role_name', name: 'official.role.role_name'},
                     {data: 'email', name: 'email'},
                     {data: 'status', name: 'status', orderable: false, searchable: false},
                     {data: 'last_accessed', name: 'last_accessed'},

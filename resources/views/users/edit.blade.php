@@ -27,6 +27,8 @@
 
 @php
     $section = request('section');
+    $resident = $user->official?->resident;
+    $officialName = $resident ? trim($resident->last_name . ', ' . $resident->first_name . ' ' . $resident->middle_name . ' ' . $resident->suffix) : 'No linked official';
 @endphp
 
 <div class="card mb-3 {{ $section === 'role' ? 'border-primary' : '' }}">
@@ -37,17 +39,9 @@
             @method('PUT')
 
             <div class="row g-3">
-                <div class="col-md-4">
-                    <label class="form-label">First Name</label>
-                    <input type="text" name="first_name" class="form-control" value="{{ old('first_name', $user->first_name) }}" required>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Middle Name</label>
-                    <input type="text" name="middle_name" class="form-control" value="{{ old('middle_name', $user->middle_name) }}">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Last Name</label>
-                    <input type="text" name="last_name" class="form-control" value="{{ old('last_name', $user->last_name) }}" required>
+                <div class="col-md-6">
+                    <label class="form-label">Linked Official</label>
+                    <input type="text" class="form-control" value="{{ $officialName }}" disabled>
                 </div>
 
                 <div class="col-md-6">
@@ -58,9 +52,9 @@
                 <div class="col-md-6">
                     <label class="form-label">Role</label>
                     <select name="role_id" class="form-select">
-                        <option value="">No Role</option>
+                        <option value="">Keep current role</option>
                         @foreach($roles as $role)
-                            <option value="{{ $role->id }}" @selected(old('role_id', $user->role_id) == $role->id)>
+                            <option value="{{ $role->id }}" @selected(old('role_id', $user->official?->role_id) == $role->id)>
                                 {{ $role->role_name }}
                             </option>
                         @endforeach

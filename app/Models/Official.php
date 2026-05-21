@@ -46,7 +46,7 @@ class Official extends Model
 
     public function user(): HasOne
     {
-        return $this->hasOne(HasOne::class, 'official_id');
+        return $this->hasOne(User::class, 'official_id');
     }
 
     /**
@@ -87,7 +87,7 @@ class Official extends Model
      */
     public function isActive(): bool
     {
-        return $this->status === 'active' && now()->between($this->term_start, $this->term_end);
+        return $this->is_active && $this->term_start && (! $this->term_end || now()->between($this->term_start, $this->term_end));
     }
 
     /**
@@ -95,7 +95,7 @@ class Official extends Model
      */
     public function hasTermEnded(): bool
     {
-        return now()->isAfter($this->term_end);
+        return $this->term_end ? now()->isAfter($this->term_end) : false;
     }
 
     /**
@@ -103,7 +103,7 @@ class Official extends Model
      */
     public function daysRemainingInTerm(): int
     {
-        return $this->term_end->diffInDays(now());
+        return $this->term_end ? max(0, now()->diffInDays($this->term_end)) : 0;
     }
 
     /**
@@ -111,7 +111,7 @@ class Official extends Model
      */
     public function scopeActive($query)
     {
-        return $query->where('status', 'active');
+        return $query->where('is_active', true);
     }
 
     /**
@@ -119,7 +119,7 @@ class Official extends Model
      */
     public function scopeByPosition($query, $position)
     {
-        return $query->where('position', $position);
+        return $query->whereHas('role', fn ($role) => $role->where('role_name', $position));
     }
 
     /**
@@ -127,7 +127,7 @@ class Official extends Model
      */
     public function scopeCurrentTerm($query)
     {
-        return $query->where('status', 'active')
+        return $query->where('is_active', true)
             ->where('term_start', '<=', now())
             ->where('term_end', '>=', now());
     }

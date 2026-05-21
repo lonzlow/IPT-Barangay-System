@@ -34,14 +34,20 @@ class BlotterController extends Controller
 
     public function index()
     {
+        $this->authorize('blotter.view');
+
         return view('blotters.index', $this->dashboardPayload());
     }
 
     public function data(Request $request)
     {
+        $this->authorize('blotter.view');
+
         $blotters = Blotter::query()
             ->with(['complainant_resident', 'respondents.respondent'])
             ->latest('incident_date');
+        $canManage = $request->user()?->can('blotter.manage') ?? false;
+        $canDelete = $request->user()?->can('blotter.delete') ?? false;
 
         return DataTables::of($blotters)
             ->addColumn('complainant_display', fn (Blotter $blotter) => e($this->complainantName($blotter)))
@@ -63,12 +69,20 @@ class BlotterController extends Controller
 
                 return '<span class="badge rounded-pill ' . $class . '">' . e($status) . '</span>';
             })
-            ->addColumn('action', function (Blotter $blotter) {
+            ->addColumn('action', function (Blotter $blotter) use ($canManage, $canDelete) {
                 $showUrl = route('blotters.show', $blotter);
 
-                return '<a href="' . e($showUrl) . '" class="btn btn-sm btn-light" title="View"><i class="bi bi-eye"></i></a>
-                    <button type="button" class="btn btn-sm btn-light" data-blotter-action="edit" data-blotter-id="' . e($blotter->id) . '" title="Edit"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-light" data-blotter-action="delete" data-blotter-id="' . e($blotter->id) . '" title="Delete"><i class="bi bi-trash"></i></button>';
+                $actions = '<a href="' . e($showUrl) . '" class="btn btn-sm btn-light" title="View"><i class="bi bi-eye"></i></a>';
+
+                if ($canManage) {
+                    $actions .= '<button type="button" class="btn btn-sm btn-light" data-blotter-action="edit" data-blotter-id="' . e($blotter->id) . '" title="Edit"><i class="bi bi-pencil"></i></button>';
+                }
+
+                if ($canDelete) {
+                    $actions .= '<button type="button" class="btn btn-sm btn-light" data-blotter-action="delete" data-blotter-id="' . e($blotter->id) . '" title="Delete"><i class="bi bi-trash"></i></button>';
+                }
+
+                return $actions;
             })
             ->filterColumn('complainant_display', function ($query, $keyword) {
                 $query->where(function ($query) use ($keyword) {
@@ -86,6 +100,8 @@ class BlotterController extends Controller
 
     public function export(): StreamedResponse
     {
+        $this->authorize('blotter.view');
+
         $fileName = 'blotter-log-' . now()->format('Ymd-His') . '.csv';
 
         return response()->streamDownload(function () {
@@ -118,6 +134,8 @@ class BlotterController extends Controller
 
     public function residentsSearch(Request $request)
     {
+        $this->authorize('blotter.manage');
+
         $search = trim((string) $request->query('q', ''));
 
         $residents = Resident::query()
@@ -144,6 +162,8 @@ class BlotterController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorize('blotter.manage');
+
         $validated = $this->validatedBlotter($request);
         $respondents = $this->normalizePeople($validated['respondents'] ?? [], 'respondent');
         $witnesses = $this->normalizePeople($validated['witnesses'] ?? [], 'witness');
@@ -177,6 +197,8 @@ class BlotterController extends Controller
 
     public function show(Request $request, string $blotter)
     {
+        $this->authorize('blotter.view');
+
         $blotter = Blotter::with([
             'filedBy.official.resident',
             'complainant_resident',
@@ -197,6 +219,8 @@ class BlotterController extends Controller
 
     public function edit(Request $request, Blotter $blotter)
     {
+        $this->authorize('blotter.manage');
+
         $blotter->load(['complainant_resident', 'respondents.respondent', 'witnesses.resident_witness', 'evidences']);
 
         if ($request->expectsJson() || $request->wantsJson()) {
@@ -211,6 +235,8 @@ class BlotterController extends Controller
 
     public function update(Request $request, Blotter $blotter)
     {
+        $this->authorize('blotter.manage');
+
         $validated = $this->validatedBlotter($request, $blotter);
         $respondents = $this->normalizePeople($validated['respondents'] ?? [], 'respondent');
         $witnesses = $this->normalizePeople($validated['witnesses'] ?? [], 'witness');
@@ -239,6 +265,8 @@ class BlotterController extends Controller
 
     public function destroy(Blotter $blotter, Request $request)
     {
+        $this->authorize('blotter.delete');
+
         $blotter->delete();
 
         if ($request->expectsJson()) {
@@ -253,6 +281,8 @@ class BlotterController extends Controller
 
     public function uploadEvidence(Request $request, string $blotter)
     {
+        $this->authorize('blotter.manage');
+
         $blotter = Blotter::query()
             ->whereKey($blotter)
             ->orWhere('case_number', $blotter)

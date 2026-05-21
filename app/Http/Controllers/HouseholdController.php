@@ -14,6 +14,8 @@ class HouseholdController extends Controller
 {
     public function index()
     {
+        $this->authorize("households.view");
+
         $puroks = Purok::orderBy("purok_name")->get();
 
         return view("households.index", compact("puroks"));
@@ -21,6 +23,8 @@ class HouseholdController extends Controller
 
     public function create()
     {
+        $this->authorize("households.manage");
+
         $puroks = Purok::orderBy("purok_name")->get();
 
         return view("households.create", compact("puroks"));
@@ -28,6 +32,8 @@ class HouseholdController extends Controller
 
     public function data()
     {
+        $this->authorize("households.view");
+
         $households = Household::query()
             ->with(["purok", "head_resident"])
             ->withCount([
@@ -35,18 +41,28 @@ class HouseholdController extends Controller
                 "residents as registered_voter_count" => fn ($query) => $query->where("voter_status", "Registered"),
             ]);
 
+        $canManage = request()->user()?->can("households.manage") ?? false;
+        $canDelete = request()->user()?->can("households.delete") ?? false;
+
         return DataTables::of($households)
             ->addColumn("purok_name", fn (Household $household) => e($household->purok?->purok_name ?? "N/A"))
             ->addColumn("address", fn (Household $household) => e($household->house_number . " " . $household->street))
             ->addColumn("head_name", fn (Household $household) => e($this->residentName($household->head_resident) ?: "Unassigned"))
             ->addColumn("family_size", fn (Household $household) => $household->member_count)
             ->addColumn("registered_voters", fn (Household $household) => $household->registered_voter_count)
-            ->addColumn("action", function (Household $household) {
-                return '<div class="btn-group btn-group-sm" role="group">
-                    <a href="' . route("households.show", $household) . '" class="btn btn-sm btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>
-                    <button type="button" class="btn btn-sm btn-outline-warning" data-household-action="edit" data-household-id="' . e($household->id) . '" title="Edit"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-sm btn-outline-danger" data-household-action="delete" data-household-id="' . e($household->id) . '" title="Delete"><i class="bi bi-trash"></i></button>
-                </div>';
+            ->addColumn("action", function (Household $household) use ($canManage, $canDelete) {
+                $actions = '<div class="btn-group btn-group-sm" role="group">
+                    <a href="' . route("households.show", $household) . '" class="btn btn-sm btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>';
+
+                if ($canManage) {
+                    $actions .= '<button type="button" class="btn btn-sm btn-outline-warning" data-household-action="edit" data-household-id="' . e($household->id) . '" title="Edit"><i class="bi bi-pencil"></i></button>';
+                }
+
+                if ($canDelete) {
+                    $actions .= '<button type="button" class="btn btn-sm btn-outline-danger" data-household-action="delete" data-household-id="' . e($household->id) . '" title="Delete"><i class="bi bi-trash"></i></button>';
+                }
+
+                return $actions . '</div>';
             })
             ->rawColumns(["action"])
             ->toJson();
@@ -54,6 +70,8 @@ class HouseholdController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorize("households.manage");
+
         $validated = $request->validate([
             "purok_id" => ["required", "exists:puroks,id"],
             "house_number" => ["required", "string", "max:255"],
@@ -74,6 +92,8 @@ class HouseholdController extends Controller
 
     public function show(Household $household)
     {
+        $this->authorize("households.view");
+
         $household->load([
             "purok",
             "head_resident",
@@ -91,6 +111,8 @@ class HouseholdController extends Controller
 
     public function edit(Household $household)
     {
+        $this->authorize("households.manage");
+
         $household->load(["residents" => fn ($query) => $query->orderBy("last_name")->orderBy("first_name")]);
 
         if (request()->expectsJson()) {
@@ -115,6 +137,8 @@ class HouseholdController extends Controller
 
     public function update(Request $request, Household $household)
     {
+        $this->authorize("households.manage");
+
         $validated = $request->validate([
             "purok_id" => ["required", "exists:puroks,id"],
             "house_number" => ["required", "string", "max:255"],
@@ -137,6 +161,8 @@ class HouseholdController extends Controller
 
     public function destroy(Household $household)
     {
+        $this->authorize("households.delete");
+
         if ($household->residents()->exists()) {
             $message = "Cannot delete a household with assigned residents. Reassign residents first.";
 
@@ -158,6 +184,8 @@ class HouseholdController extends Controller
 
     public function statistics()
     {
+        $this->authorize("households.view");
+
         $totalHouseholds = Household::count();
         $totalResidents = Resident::count();
         $votersCount = Resident::where("voter_status", "Registered")->count();

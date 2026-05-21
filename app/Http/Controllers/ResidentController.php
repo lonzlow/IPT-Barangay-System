@@ -17,6 +17,8 @@ class ResidentController extends Controller
      */
     public function index()
     {
+        $this->authorize('residents.view');
+
         $totalResidents = Resident::count();
         $activeCount = Resident::where('residency_status', 'Active')->count();
         $deceasedCount = Resident::where('residency_status', 'Deceased')->count();
@@ -76,6 +78,8 @@ class ResidentController extends Controller
      */
     public function create()
     {
+        $this->authorize('residents.manage');
+
         $households = Household::with('purok')->orderBy('house_number')->get();
 
         return view('residents.create', compact('households'));
@@ -151,7 +155,7 @@ class ResidentController extends Controller
      */
     public function edit(string $id)
     {
-        $resident = Resident::withTrashed()->findOrFail($id);
+        $resident = Resident::findOrFail($id);
         $households = Household::with('purok')->orderBy('house_number')->get();
 
         // Kung AJAX ang tumawag, JSON lang ang ibabalik para sa Modal natin
@@ -167,7 +171,7 @@ class ResidentController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $resident = Resident::withTrashed()->findOrFail($id);
+        $resident = Resident::findOrFail($id);
 
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
@@ -232,21 +236,13 @@ class ResidentController extends Controller
 
     public function getResidents(Request $request)
     {
+
         $user = auth()->user();
-        $isAdminOrSecretary = false;
+        // I-set ang role logic mo dito (halimbawa lang ito, pakipalitan depende sa logic mo)
+        $isAdminOrSecretary = $user && in_array($user->role_id, [1, 3]);
+        $residents = Resident::with(['household.purok']);
 
-        if ($user) {
-            $roleId = $user->role_id ?? ($user->official->role_id ?? null);
-
-            if ($roleId !== null && in_array((int) $roleId, [1, 3])) {
-                $isAdminOrSecretary = true;
-            }
-        }
-
-        // Kung admin/secretary, isama ang deleted (withTrashed). Kung hindi, active lang.
-        $residents = $isAdminOrSecretary ? Resident::withTrashed() : Resident::query();
-        $residents->with(['household.purok']);
-
+        // Apply custom filters (not search - Yajra handles search automatically)
         if ($request->has('gender') && $request->input('gender')) {
             $residents->where('gender', $request->input('gender'));
         }
@@ -366,6 +362,8 @@ class ResidentController extends Controller
      */
     public function demographics()
     {
+        $this->authorize('residents.view');
+
         $residents = Resident::all();
         $totalResidents = $residents->count();
 
@@ -419,6 +417,8 @@ class ResidentController extends Controller
      */
     public function exportPDF(Request $request)
     {
+        $this->authorize('residents.view');
+
         $residents = Resident::with(['household.purok'])->get();
 
         $data = [

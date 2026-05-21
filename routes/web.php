@@ -34,6 +34,7 @@ Route::middleware('auth')->group(function () {
     Route::resource('blotters', BlotterController::class);
 
     // OFFICIALS ROUTE
+    Route::post('/officials/assign-designation', [OfficialController::class, 'assignDesignation'])->name('officials.assignDesignation');
     Route::resource('officials', OfficialController::class);
 
     // COMMITTEES ROUTE
@@ -74,6 +75,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/documents/data', [DocumentController::class, 'data'])->name('documents.data');
         Route::get('/documents/audit-logs', [DocumentController::class, 'auditLogs'])->name('documents.auditLogs');
         Route::post('/documents/preview', [DocumentController::class, 'preview'])->name('documents.preview');
+        Route::get('/documents/residents/search', [DocumentController::class, 'residentsSearch'])->name('documents.residents.search');
         Route::get('/documents/residents/{resident}/businesses', [DocumentController::class, 'residentBusinesses'])->name('documents.residentBusinesses');
         Route::get('/documents/residents/{resident}/documents', [DocumentController::class, 'getResidentDocuments'])->name('documents.getResidentDocuments');
         Route::get('/documents/{document}/download-pdf', [DocumentController::class, 'downloadPdf'])->name('documents.downloadPdf');

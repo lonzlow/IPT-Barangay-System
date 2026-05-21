@@ -89,6 +89,44 @@ function documentUser(): User
     ]);
 }
 
+function documentViewerUser(): User
+{
+    $role = Role::create([
+        'role_name' => 'Barangay Treasurer',
+        'description' => 'Document viewer',
+    ]);
+
+    $purok = \App\Models\Purok::create(['purok_name' => 'Purok 2']);
+    $household = \App\Models\Household::forceCreate([
+        'purok_id' => $purok->id,
+        'house_number' => '456',
+        'street' => 'Rizal Street',
+        'family_size' => 4,
+    ]);
+
+    $resident = Resident::factory()->create([
+        'household_id' => $household->id,
+        'residency_status' => 'Active',
+    ]);
+
+    $official = Official::create([
+        'official_number' => 'OFF-VIEW-001',
+        'resident_id' => $resident->id,
+        'role_id' => $role->id,
+        'term_start' => now()->subYear()->toDateString(),
+        'term_end' => now()->addYear()->toDateString(),
+        'is_active' => true,
+    ]);
+
+    return User::create([
+        'official_id' => $official->id,
+        'email' => 'treasurer@example.test',
+        'password' => Hash::make('password'),
+        'email_verified_at' => now(),
+        'status' => 'Active',
+    ]);
+}
+
 function adminUser(): User
 {
     $role = Role::create([

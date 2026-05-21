@@ -22,6 +22,11 @@
     .summary-box { background:#f8fafc; border:1px solid #edf2f7; border-radius:10px; padding:12px; }
     .summary-value { font-family:"DM Mono", monospace; font-size:22px; font-weight:800; color:#0f172a; line-height:1; }
     .summary-label { font-size:11.5px; color:#64748b; margin-top:5px; }
+    .assignment-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 0; border-bottom:1px solid #f1f5f9; }
+    .assignment-row:last-child { border-bottom:0; }
+    .assignment-name { font-size:13px; font-weight:800; color:#0f172a; }
+    .assignment-role { font-size:11.5px; color:#64748b; }
+    .assignment-designation { font-size:11px; font-weight:800; color:#1a56db; background:#eff6ff; border-radius:999px; padding:5px 9px; white-space:nowrap; }
 </style>
 @endsection
 
@@ -94,14 +99,42 @@
 
 <div class="tab-content">
     <div class="tab-pane fade show active" id="overview" role="tabpanel">
-        <div class="table-card">
-            <div class="table-header">
-                <div class="heading">Allowed Record Types</div>
+        <div class="row g-3">
+            <div class="col-lg-7">
+                <div class="table-card h-100">
+                    <div class="table-header">
+                        <div class="heading">Allowed Record Types</div>
+                    </div>
+                    <div class="p-3 d-flex flex-wrap gap-2">
+                        @foreach($recordTypes as $label)
+                            <span class="badge rounded-pill" style="background:#eff6ff;color:#1a56db;padding:7px 10px;">{{ $label }}</span>
+                        @endforeach
+                    </div>
+                </div>
             </div>
-            <div class="p-3 d-flex flex-wrap gap-2">
-                @foreach($recordTypes as $label)
-                    <span class="badge rounded-pill" style="background:#eff6ff;color:#1a56db;padding:7px 10px;">{{ $label }}</span>
-                @endforeach
+            <div class="col-lg-5">
+                <div class="table-card h-100">
+                    <div class="table-header">
+                        <div class="heading">Committee Assignments</div>
+                    </div>
+                    <div class="p-3">
+                        @forelse($committee->assignments as $assignment)
+                            @php
+                                $assignedResident = $assignment->official?->resident;
+                                $assignedName = $assignedResident ? trim($assignedResident->first_name . ' ' . $assignedResident->last_name) : 'Official';
+                            @endphp
+                            <div class="assignment-row">
+                                <div>
+                                    <div class="assignment-name">{{ $assignedName }}</div>
+                                    <div class="assignment-role">{{ $assignment->official?->role?->role_name ?? 'No role' }}</div>
+                                </div>
+                                <span class="assignment-designation">{{ $assignment->designation }}</span>
+                            </div>
+                        @empty
+                            <div class="empty-panel">No officials or staff assigned yet.</div>
+                        @endforelse
+                    </div>
+                </div>
             </div>
         </div>
     </div>

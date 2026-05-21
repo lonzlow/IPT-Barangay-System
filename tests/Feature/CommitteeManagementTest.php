@@ -20,6 +20,16 @@ function committeeTestUser(string $roleName): User
         (new RoleSeeder())->run();
     }
 
+    $roleName = [
+        'Secretary' => 'Barangay Secretary',
+        'Treasurer' => 'Barangay Treasurer',
+        'SK Chair' => 'SK Chairperson',
+        'Tanod' => 'Barangay Tanod',
+        'BHW' => 'Health Worker / BHW',
+        'Encoder' => 'Encoder / Data Entry Clerk',
+        'Auditor' => 'Auditor / Inspector',
+    ][$roleName] ?? $roleName;
+
     $role = Role::where('role_name', $roleName)->firstOrFail();
     $purok = Purok::firstOrCreate(['purok_name' => 'Committee Test Purok']);
     $household = Household::forceCreate([
@@ -82,8 +92,7 @@ test('admin and kagawad can view committee dashboard', function () {
 
     $this->actingAs(committeeTestUser('Kagawad'))
         ->get(route('committees.index'))
-        ->assertOk()
-        ->assertSee('Committee Dashboard');
+        ->assertOk();
 });
 
 test('unauthorized user cannot view committee dashboard', function () {
@@ -118,7 +127,40 @@ test('committee chairman is saved through chairperson id', function () {
     ]);
 });
 
-test('committee seeder creates eight target committees with role five chairmen', function () {
+test('official chairperson designation updates committee chairperson', function () {
+    (new RoleSeeder())->run();
+    $admin = committeeTestUser('Admin');
+    $chairUser = committeeTestUser('Kagawad');
+    $committee = Committee::create([
+        'name' => 'Designation Committee',
+        'slug' => 'designation-committee',
+        'description' => 'Designation sync test',
+    ]);
+
+    $this->actingAs($admin)
+        ->postJson(route('officials.assignDesignation'), [
+            'official_id' => $chairUser->official_id,
+            'committee_id' => $committee->id,
+            'designation' => 'Chairperson',
+        ])
+        ->assertOk();
+
+    expect($committee->refresh()->chairperson_id)->toBe($chairUser->official_id);
+
+    $this->assertDatabaseHas('official_assignments', [
+        'official_id' => $chairUser->official_id,
+        'committee_id' => $committee->id,
+        'designation' => 'Chairperson',
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('committees.index'))
+        ->assertOk()
+        ->assertSee('Designation Committee')
+        ->assertSee($chairUser->official->resident->first_name);
+});
+
+test('committee seeder creates eight target committees with kagawad chairmen', function () {
     (new RoleSeeder())->run();
     seedCommitteeResidents();
     (new CommitteeOfficialSeeder())->run();
@@ -141,7 +183,7 @@ test('committee seeder creates eight target committees with role five chairmen',
         ->get()
         ->each(function (Committee $committee) {
             expect($committee->headOfficial)->not->toBeNull();
-            expect($committee->headOfficial->role_id)->toBe(5);
+            expect($committee->headOfficial->role?->role_name)->toBe('Kagawad');
         });
 });
 
@@ -199,6 +241,94 @@ test('committee detail workspace displays grouped records and counts', function 
         ->assertSee('Patrol Photo')
         ->assertSee('Monthly Report')
         ->assertSee('Total records');
+});
+
+test('assigned official only sees and opens assigned committees', function () {
+    (new RoleSeeder())->run();
+    $assignedUser = committeeTestUser('Kagawad');
+    $assignedCommittee = Committee::create([
+        'name' => 'Assigned Committee',
+        'slug' => 'assigned-committee',
+        'description' => 'Visible committee',
+    ]);
+    $otherCommittee = Committee::create([
+        'name' => 'Other Committee',
+        'slug' => 'other-committee',
+        'description' => 'Hidden committee',
+    ]);
+
+    $assignedCommittee->assignments()->create([
+        'official_id' => $assignedUser->official_id,
+        'designation' => 'Member',
+    ]);
+
+    $this->actingAs($assignedUser)
+        ->get(route('committees.index'))
+        ->assertOk()
+        ->assertSee('Assigned Committee')
+        ->assertDontSee('Other Committee');
+
+    $this->actingAs($assignedUser)
+        ->get(route('committees.show', $assignedCommittee))
+        ->assertOk()
+        ->assertSee('Assigned Committee');
+
+    $this->actingAs($assignedUser)
+        ->get(route('committees.show', $otherCommittee))
+        ->assertForbidden();
+});
+
+test('assigned official cannot create records for unassigned committee', function () {
+    (new RoleSeeder())->run();
+    $assignedUser = committeeTestUser('Kagawad');
+    $assignedCommittee = Committee::create([
+        'name' => 'Record Assigned Committee',
+        'slug' => 'record-assigned-committee',
+        'description' => 'Allowed committee',
+    ]);
+    $otherCommittee = Committee::create([
+        'name' => 'Record Other Committee',
+        'slug' => 'record-other-committee',
+        'description' => 'Blocked committee',
+    ]);
+
+    $assignedCommittee->assignments()->create([
+        'official_id' => $assignedUser->official_id,
+        'designation' => 'Member',
+    ]);
+
+    $this->actingAs($assignedUser)
+        ->postJson(route('committees.records.store', $assignedCommittee), [
+            'record_type' => 'report',
+            'title' => 'Allowed Report',
+            'record_date' => now()->toDateString(),
+        ])
+        ->assertCreated();
+
+    $this->actingAs($assignedUser)
+        ->postJson(route('committees.records.store', $otherCommittee), [
+            'record_type' => 'report',
+            'title' => 'Blocked Report',
+            'record_date' => now()->toDateString(),
+        ])
+        ->assertForbidden();
+});
+
+test('committee user with no assignments sees assigned empty state', function () {
+    (new RoleSeeder())->run();
+    $user = committeeTestUser('Kagawad');
+
+    Committee::create([
+        'name' => 'Unassigned Existing Committee',
+        'slug' => 'unassigned-existing-committee',
+        'description' => 'Should not be visible',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('committees.index'))
+        ->assertOk()
+        ->assertSee('No committees assigned to your account yet')
+        ->assertDontSee('Unassigned Existing Committee');
 });
 
 test('committee photo and video records can upload media files', function () {

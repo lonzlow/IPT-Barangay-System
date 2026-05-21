@@ -12,6 +12,8 @@ class CertificateTemplateController extends Controller
      */
     public function index()
     {
+        $this->authorize('documents.view');
+
         $templates = DocumentTemplate::latest()->paginate(10);
 
         return view('certificate-templates.index', compact('templates'));
@@ -22,6 +24,8 @@ class CertificateTemplateController extends Controller
      */
     public function create()
     {
+        $this->authorize('document-templates.manage');
+
         return view('certificate-templates.create');
     }
 
@@ -30,6 +34,8 @@ class CertificateTemplateController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('document-templates.manage');
+
         $validated = $request->validate([
             'name' => 'required|string|unique:document_templates|max:100',
             'description' => 'nullable|string|max:500',
@@ -51,6 +57,8 @@ class CertificateTemplateController extends Controller
      */
     public function show(DocumentTemplate $certificateTemplate)
     {
+        $this->authorize('documents.view');
+
         $certificateTemplate->load('documents');
 
         return view('certificate-templates.show', ['template' => $certificateTemplate]);
@@ -61,6 +69,8 @@ class CertificateTemplateController extends Controller
      */
     public function edit(DocumentTemplate $certificateTemplate)
     {
+        $this->authorize('document-templates.manage');
+
         return view('certificate-templates.edit', ['template' => $certificateTemplate]);
     }
 
@@ -69,6 +79,8 @@ class CertificateTemplateController extends Controller
      */
     public function update(Request $request, DocumentTemplate $certificateTemplate)
     {
+        $this->authorize('document-templates.manage');
+
         $validated = $request->validate([
             'name' => 'required|string|max:100|unique:document_templates,name,' . $certificateTemplate->id,
             'description' => 'nullable|string|max:500',
@@ -90,6 +102,8 @@ class CertificateTemplateController extends Controller
      */
     public function destroy(DocumentTemplate $certificateTemplate)
     {
+        $this->authorize('document-templates.manage');
+
         // Prevent deletion if template has documents
         if ($certificateTemplate->documents()->count() > 0) {
             return redirect()

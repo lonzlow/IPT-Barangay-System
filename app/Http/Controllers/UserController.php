@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\Official;
 use App\Models\Role;
 use App\Models\User;
 use Carbon\Carbon;
@@ -14,9 +15,11 @@ class UserController extends Controller
 {
     public function index()
     {
-        $total_users = User::all()->count();
+        $this->authorize('users.view');
+
+        $total_users = User::count();
         $active_users = User::where('status', '=', 'Active')->count();
-        $total_admins = User::where('role_id', '=', 1)->count(); // Role id 1 should always be admin
+        $total_admins = User::whereHas('official.role', fn ($query) => $query->where('role_name', 'Admin'))->count();
         $total_actions_today = ActivityLog::whereBetween('created_at', [
             Carbon::today()->startOfDay(),
             Carbon::today()->endOfDay(),
@@ -27,31 +30,37 @@ class UserController extends Controller
 
     public function create()
     {
-        $roles = Role::orderBy('role_name')->get();
+        $this->authorize('users.view');
 
-        return view('users.create', compact('roles'));
+        $roles = Role::orderBy('role_name')->get();
+        $officials = Official::with(['resident', 'role'])
+            ->whereDoesntHave('user')
+            ->where('is_active', true)
+            ->orderBy('official_number')
+            ->get();
+
+        return view('users.create', compact('roles', 'officials'));
     }
 
     public function store(Request $request)
     {
+        $this->authorize('users.view');
+
         $validated = $request->validate([
-            'first_name' => ['required', 'string', 'max:255'],
-            'middle_name' => ['nullable', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'suffix' => ['nullable', 'string', 'max:255'],
+            'official_id' => ['required', 'exists:officials,id', 'unique:users,official_id'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role_id' => ['nullable', 'exists:roles,id'],
         ]);
 
+        if (! empty($validated['role_id'])) {
+            Official::whereKey($validated['official_id'])->update(['role_id' => $validated['role_id']]);
+        }
+
         User::create([
-            'first_name' => $validated['first_name'],
-            'middle_name' => $validated['middle_name'] ?? null,
-            'last_name' => $validated['last_name'],
-            'suffix' => $validated['suffix'] ?? null,
+            'official_id' => $validated['official_id'],
             'email' => $validated['email'],
             'password' => $validated['password'],
-            'role_id' => $validated['role_id'] ?? null,
             'status' => 'Active',
         ]);
 
@@ -67,7 +76,9 @@ class UserController extends Controller
 
     public function edit(string $id)
     {
-        $user = User::findOrFail($id);
+        $this->authorize('users.view');
+
+        $user = User::with('official.resident', 'official.role')->findOrFail($id);
         $roles = Role::orderBy('role_name')->get();
 
         return view('users.edit', compact('user', 'roles'));
@@ -75,17 +86,20 @@ class UserController extends Controller
 
     public function update(Request $request, string $id)
     {
-        $user = User::findOrFail($id);
+        $this->authorize('users.view');
+
+        $user = User::with('official')->findOrFail($id);
 
         $validated = $request->validate([
-            'first_name' => ['required', 'string', 'max:255'],
-            'middle_name' => ['nullable', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'role_id' => ['nullable', 'exists:roles,id'],
         ]);
 
-        $user->update($validated);
+        $user->update(['email' => $validated['email']]);
+
+        if ($user->official && ! empty($validated['role_id'])) {
+            $user->official->update(['role_id' => $validated['role_id']]);
+        }
 
         return redirect()
             ->route('users.edit', $user->id)
@@ -95,6 +109,8 @@ class UserController extends Controller
     // DEACTIVATING THE USER BUT NOT FULLY DELETED
     public function destroy(string $id)
     {
+        $this->authorize('users.view');
+
         $user = User::findOrFail($id);
 
         $user->update([
@@ -108,9 +124,15 @@ class UserController extends Controller
 
     public function getUsers(Request $request)
     {
-        $users = User::query();
+        $this->authorize('users.view');
+
+        $users = User::query()->with('official.resident', 'official.role');
 
         return DataTables::of($users)
+            ->addColumn('first_name', fn ($user) => e($user->official?->resident?->first_name ?? ''))
+            ->addColumn('middle_name', fn ($user) => e($user->official?->resident?->middle_name ?? ''))
+            ->addColumn('last_name', fn ($user) => e($user->official?->resident?->last_name ?? ''))
+            ->addColumn('role_name', fn ($user) => e($user->official?->role?->role_name ?? 'No role'))
             ->editColumn('last_accessed', function ($user) {
                 return $user->last_accessed
                     ? $user->last_accessed->diffForHumans()

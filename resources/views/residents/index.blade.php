@@ -527,32 +527,62 @@ Route: GET /residents → route('residents.index')
                         $('#table-info').text('Showing 0 entries');
                     }
 
-                    // 2. CUSTOM PAGINATION UI
+                    // 2. DYNAMICALLY BUILD CUSTOM DESIGN PAGINATION UI
                     var navContainer = $('#custom-pagination');
                     navContainer.empty();
+
                     if (pageInfo.pages <= 1) return;
 
                     var ul = $('<ul class="pagination pagination-sm mb-0 d-flex align-items-center" style="gap: 4px;"></ul>');
-                    var prevClass = (pageInfo.page === 0) ? 'disabled' : '';
-                    ul.append($('<li class="page-item ' + prevClass + '"><a class="page-link px-2 py-1 text-secondary border" href="#" data-page="prev" style="border-radius: 6px; font-size: 11.5px; font-weight: 500; background: #fff; box-shadow: none;">Previous</a></li>'));
 
+                    // --- BUTTON: PREVIOUS ---
+                    var prevClass = (pageInfo.page === 0) ? 'disabled' : '';
+                    ul.append($('<li class="page-item ' + prevClass + '"><a class="page-link px-2 py-1 text-secondary border" href="javascript:void(0)" data-page="prev" style="border-radius: 6px; font-size: 11.5px; font-weight: 500; background: #fff; box-shadow: none;">Previous</a></li>'));
+
+                    // --- BUTTONS: PAGE NUMBERS ---
                     var startPage = Math.max(0, pageInfo.page - 2);
                     var endPage = Math.min(pageInfo.pages - 1, startPage + 4);
                     if (endPage - startPage < 4) startPage = Math.max(0, endPage - 4);
 
                     for (var i = startPage; i <= endPage; i++) {
                         var activeClass = (pageInfo.page === i) ? 'active' : '';
-                        var activeStyle = (pageInfo.page === i) ? 'background-color: #1a56db; border-color: #1a56db; color: #fff; font-weight: 600;' : 'background: #fff; color: #475569;';
-                        ul.append($('<li class="page-item ' + activeClass + '"><a class="page-link d-inline-flex align-items-center justify-content-center border" href="#" data-page="' + i + '" style="border-radius: 6px; width: 28px; height: 28px; font-size: 11.5px; box-shadow: none; ' + activeStyle + '">' + (i + 1) + '</a></li>'));
+                        var activeStyle = (pageInfo.page === i)
+                            ? 'background-color: #1a56db; border-color: #1a56db; color: #fff; font-weight: 600;'
+                            : 'background: #fff; color: #475569;';
+                        ul.append($('<li class="page-item ' + activeClass + '"><a class="page-link d-inline-flex align-items-center justify-content-center border" href="javascript:void(0)" data-page="' + i + '" style="border-radius: 6px; width: 28px; height: 28px; font-size: 11.5px; box-shadow: none; ' + activeStyle + '">' + (i + 1) + '</a></li>'));
                     }
 
+                    // --- BUTTON: NEXT ---
                     var nextClass = (pageInfo.page === pageInfo.pages - 1) ? 'disabled' : '';
-                    ul.append($('<li class="page-item ' + nextClass + '"><a class="page-link px-2 py-1 text-secondary border" href="#" data-page="next" style="border-radius: 6px; font-size: 11.5px; font-weight: 500; background: #fff; box-shadow: none;">Next</a></li>'));
+                    ul.append($('<li class="page-item ' + nextClass + '"><a class="page-link px-2 py-1 text-secondary border" href="javascript:void(0)" data-page="next" style="border-radius: 6px; font-size: 11.5px; font-weight: 500; background: #fff; box-shadow: none;">Next</a></li>'));
+
                     navContainer.append(ul);
 
+                    // Row status check
                     $('#residents-table tbody tr').each(function () {
-                        if ($(this).text().includes('Deleted')) $(this).addClass('row-deleted');
+                        if ($(this).text().includes('Deleted')) {
+                            $(this).addClass('row-deleted');
+                        }
                     });
+                }
+            });
+            $(document).off('click', '#custom-pagination .page-link').on('click', '#custom-pagination .page-link', function (e) {
+                e.preventDefault(); // Ito ang nagpapatigil sa pag-jump
+
+                var parentItem = $(this).parent();
+                if (parentItem.hasClass('disabled') || parentItem.hasClass('active')) {
+                    return;
+                }
+
+                var targetPage = $(this).data('page');
+                var table = $('#residents-table').DataTable();
+
+                if (targetPage === 'prev') {
+                    table.page('previous').draw('page');
+                } else if (targetPage === 'next') {
+                    table.page('next').draw('page');
+                } else {
+                    table.page(parseInt(targetPage)).draw('page');
                 }
             });
 
@@ -643,15 +673,15 @@ Route: GET /residents → route('residents.index')
             @if (session('success'))
                 // Mag-create ng toast element via JavaScript
                 let toast = $(`<div class="toast align-items-center text-white bg-success border-0 position-fixed top-0 end-0 m-3" style="z-index: 1055;" role="alert">
-                                                <div class="d-flex">
-                                                    <div class="toast-body"><i class="bi bi-check-circle me-2"></i> {{ session('success') }}</div>
-                                                </div>
-                                            </div>
-                                        `);
+                                                                        <div class="d-flex">
+                                                                            <div class="toast-body"><i class="bi bi-check-circle me-2"></i> {{ session('success') }}</div>
+                                                                        </div>
+                                                                    </div>
+                                                                `);
                 $('body').append(toast);
                 toast.fadeIn().delay(3000).fadeOut(function () { $(this).remove(); });
             @endif
-        });
+                    });
     </script>
     <div class="modal fade" id="editResidentModal" tabindex="-1" aria-labelledby="editResidentModalLabel"
         aria-hidden="true">
