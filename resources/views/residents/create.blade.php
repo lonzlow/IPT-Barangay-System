@@ -82,7 +82,8 @@
                         <select name="voter_status" class="form-select" required>
                             @foreach(['Registered', 'Unregistered', 'Suspended'] as $option)
                                 <option value="{{ $option }}" @selected(old('voter_status', 'Unregistered') === $option)>
-                                    {{ $option }}</option>
+                                    {{ $option }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
@@ -91,7 +92,8 @@
                         <select name="residency_status" class="form-select" required>
                             @foreach(['Active', 'Deceased', 'Transferred'] as $option)
                                 <option value="{{ $option }}" @selected(old('residency_status', 'Active') === $option)>
-                                    {{ $option }}</option>
+                                    {{ $option }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
@@ -121,4 +123,55 @@
             </form>
         </div>
     </div>
+
+@endsection
+@section('scripts')
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const birthdateInput = document.querySelector('input[name="birthdate"]');
+            const voterSelect = document.querySelector('select[name="voter_status"]'); // Ito yung dati mong rule
+            const civilSelect = document.querySelector('select[name="civil_status"]'); // Ito yung bago nating rule
+
+            function updateFieldsUI() {
+                if (!birthdateInput.value) return;
+
+                // 1. Calculate Age
+                let birthdate = new Date(birthdateInput.value);
+                let today = new Date();
+                let age = today.getFullYear() - birthdate.getFullYear();
+                if (today.getMonth() < birthdate.getMonth() || (today.getMonth() === birthdate.getMonth() && today.getDate() < birthdate.getDate())) {
+                    age--;
+                }
+
+                // 2. Logic para sa Civil Status
+                // 17 pababa = Single lang
+                // 18 pataas = Pwede na lahat
+                const restrictedCivil = ['Married', 'Widowed', 'Separated', 'Divorced'];
+
+                Array.from(civilSelect.options).forEach(option => {
+                    if (age <= 17 && restrictedCivil.includes(option.value)) {
+                        option.disabled = true;
+                    } else {
+                        option.disabled = false;
+                    }
+                });
+
+                // Visual Cue: Light red background kung 17 pababa at bawal ang napili
+                if (age <= 17 && restrictedCivil.includes(civilSelect.value)) {
+                    civilSelect.style.backgroundColor = "#fee2e2"; // Red background
+                    civilSelect.style.border = "2px solid #dc3545"; // Bold Red Border
+                    civilSelect.value = 'Single'; // Force reset
+                } else {
+                    civilSelect.style.backgroundColor = "#ffffff";
+                    civilSelect.style.border = "1px solid #ced4da";
+                }
+            }
+
+            birthdateInput.addEventListener('change', updateFieldsUI);
+            civilSelect.addEventListener('change', updateFieldsUI);
+
+            // Run on load
+            updateFieldsUI();
+        });
+    </script>
 @endsection

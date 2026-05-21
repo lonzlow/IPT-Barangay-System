@@ -130,8 +130,11 @@ Route: GET /residents → route('residents.index')
         </div>
     </div>
 
-    @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
+    @if (session('success'))
+        <div id="flash-message" class="alert alert-success d-flex align-items-center shadow-sm border-0 mb-3" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>
+            <div>{{ session('success') }}</div>
+        </div>
     @endif
 
     {{-- ── STAT WIDGETS ── --}}
@@ -635,6 +638,20 @@ Route: GET /residents → route('residents.index')
                 $('.table-header .heading .badge').text(data.totalResidents);
             });
         }
+
+        $(document).ready(function () {
+            @if (session('success'))
+                // Mag-create ng toast element via JavaScript
+                let toast = $(`<div class="toast align-items-center text-white bg-success border-0 position-fixed top-0 end-0 m-3" style="z-index: 1055;" role="alert">
+                                                <div class="d-flex">
+                                                    <div class="toast-body"><i class="bi bi-check-circle me-2"></i> {{ session('success') }}</div>
+                                                </div>
+                                            </div>
+                                        `);
+                $('body').append(toast);
+                toast.fadeIn().delay(3000).fadeOut(function () { $(this).remove(); });
+            @endif
+        });
     </script>
     <div class="modal fade" id="editResidentModal" tabindex="-1" aria-labelledby="editResidentModalLabel"
         aria-hidden="true">

@@ -86,26 +86,56 @@ class ResidentController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'first_name' => ['required', 'string', 'max:255'],
-            'middle_name' => ['nullable', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'suffix' => ['nullable', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:residents,email'],
-            'contact_number' => ['required', 'string', 'max:255'],
-            'birthdate' => ['required', 'date'],
-            'gender' => ['required', Rule::in(['Male', 'Female'])],
-            'civil_status' => ['required', Rule::in(['Single', 'Married', 'Widowed', 'Separated', 'Divorced'])],
-            'voter_status' => ['required', Rule::in(['Registered', 'Unregistered', 'Suspended'])],
-            'residency_status' => ['required', Rule::in(['Active', 'Deceased', 'Transferred'])],
-            'household_id' => ['required', 'exists:households,id'],
+
+        $birthdate = \Carbon\Carbon::parse($request->birthdate);
+        $age = $birthdate->age;
+
+
+        // Validate inputs
+        $request->validate([
+            'first_name' => 'required',
+            'last_name' => 'required',
+            'email' => 'nullable|email|unique:residents,email', // Check duplicate email
+            'contact_number' => 'required|unique:residents,contact_number',
+            'birthdate' => 'required|date',
+            'gender' => 'required',
+            'civil_status' => 'required',
+            'voter_status' => [
+                'required',
+                function ($attribute, $value, $fail) use ($age) {
+                    // Kung 15 pababa, bawal ang 'Registered'
+                    if ($age <= 15 && $value === 'Registered') {
+                        $fail('Ang mga resident na edad 15 pababa ay hindi maaaring maging Registered voter.');
+                    }
+                },
+            ],
+            'residency_status' => 'required',
+            'household_id' => 'required|exists:households,id',
         ]);
 
-        Resident::create($validated);
+        // I-generate ang format na BR-YY-XXXX-XXXX
+        $year = date('y'); // Halimbawa: '26' para sa 2026
 
-        return redirect()
-            ->route('residents.index')
-            ->with('success', 'New resident created successfully.');
+        // I-generate ang random numbers
+        $generateNumber = function () {
+            $part1 = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            $part2 = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            return $part1 . '-' . $part2;
+        };
+
+        $residentNumber = "BR-{$year}-" . $generateNumber();
+
+        // Siguraduhin na UNIQUE ang generated number (check sa database)
+        while (\App\Models\Resident::where('resident_number', $residentNumber)->exists()) {
+            $residentNumber = "BR-{$year}-" . $generateNumber();
+        }
+
+        // Save sa database
+        $resident = new \App\Models\Resident($request->all());
+        $resident->resident_number = $residentNumber;
+        $resident->save();
+
+        return redirect()->route('residents.index')->with('success', 'Resident added successfully.');
     }
 
     /**
@@ -144,8 +174,18 @@ class ResidentController extends Controller
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'suffix' => ['nullable', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('residents', 'email')->ignore($resident->id)],
-            'contact_number' => ['required', 'string', 'max:255'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('residents', 'email')->ignore($resident->id)
+            ],
+            'contact_number' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('residents', 'contact_number')->ignore($resident->id)
+            ],
             'birthdate' => ['required', 'date'],
             'gender' => ['required', Rule::in(['Male', 'Female'])],
             'civil_status' => ['required', Rule::in(['Single', 'Married', 'Widowed', 'Separated', 'Divorced'])],
