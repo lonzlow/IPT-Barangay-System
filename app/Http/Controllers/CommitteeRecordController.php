@@ -14,6 +14,7 @@ class CommitteeRecordController extends Controller
     public function store(Request $request, Committee $committee)
     {
         $this->authorize('committee-records.manage');
+        abort_unless($this->canAccessCommittee($request, $committee), 403);
 
         $validated = $this->validateRecord($request);
         $validated['committee_id'] = $committee->id;
@@ -32,6 +33,7 @@ class CommitteeRecordController extends Controller
     public function update(Request $request, CommitteeRecord $record)
     {
         $this->authorize('committee-records.manage');
+        abort_unless($this->canAccessCommittee($request, $record->committee), 403);
 
         $validated = $this->validateRecord($request);
         $validated['recorded_at'] = $validated['recorded_at'] ?? $validated['record_date'] ?? $record->recorded_at ?? now();
@@ -48,6 +50,7 @@ class CommitteeRecordController extends Controller
     public function destroy(CommitteeRecord $record)
     {
         $this->authorize('committee-records.manage');
+        abort_unless($this->canAccessCommittee(request(), $record->committee), 403);
 
         $this->deleteStoredMedia($record->file_path);
         $record->delete();
@@ -129,5 +132,29 @@ class CommitteeRecordController extends Controller
         }
 
         Storage::disk('public')->delete(Str::after($filePath, '/storage/'));
+    }
+
+    private function canAccessCommittee(Request $request, Committee $committee): bool
+    {
+        if ($request->user()?->official?->hasAnyRole([
+            'Admin',
+            'Punong Barangay',
+            'Secretary',
+            'Barangay Secretary',
+            'Auditor',
+            'Auditor / Inspector',
+        ])) {
+            return true;
+        }
+
+        $officialId = $request->user()?->official_id;
+
+        if (! $officialId) {
+            return false;
+        }
+
+        return $committee->assignments()
+            ->where('official_id', $officialId)
+            ->exists();
     }
 }

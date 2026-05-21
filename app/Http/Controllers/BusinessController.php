@@ -20,6 +20,8 @@ class BusinessController extends Controller
      */
     public function index()
     {
+        $this->authorize('business.view');
+
         $businesses = Business::with([
             'business_owners.resident',
             'business_permits' => fn ($query) => $query->latest('issued_date')->latest(),
@@ -97,6 +99,8 @@ class BusinessController extends Controller
      */
     public function create()
     {
+        $this->authorize('business.manage');
+
         $owners = BusinessOwner::with('resident')->get();
 
         return view('businesses.create', compact('owners'));
@@ -107,6 +111,8 @@ class BusinessController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('business.manage');
+
         $validated = $request->validate([
             'business_name' => 'required|string|max:255',
 
@@ -205,6 +211,8 @@ class BusinessController extends Controller
      */
     public function show(string $id)
     {
+        $this->authorize('business.view');
+
         $business = Business::with('business_owners.resident', 'business_permits.renewals')->findOrFail($id);
         if (request()->expectsJson()) {
             return response()->json(['success' => true, 'data' => $business]);
@@ -217,6 +225,8 @@ class BusinessController extends Controller
      */
     public function edit(string $id)
     {
+        $this->authorize('business.manage');
+
         $business = Business::with('business_owners.resident')->findOrFail($id);
 
         $owners = BusinessOwner::with('resident')->get();
@@ -281,6 +291,8 @@ class BusinessController extends Controller
      */
     public function update(Request $request, string $id)
     {
+        $this->authorize('business.manage');
+
         $business = Business::findOrFail($id);
 
         $validated = $request->validate([
@@ -379,6 +391,8 @@ class BusinessController extends Controller
      */
     public function destroy(Business $business)
     {
+        $this->authorize('business.delete');
+
         $business->delete();
 
         if (request()->expectsJson()) {
@@ -389,11 +403,16 @@ class BusinessController extends Controller
 
     public function data(Request $request)
     {
+        $this->authorize('business.view');
+
         $businesses = Business::with([
             'business_owners.resident',
             'business_permits' => fn ($query) => $query->latest('issued_date')->latest(),
             'business_permits.renewals' => fn ($query) => $query->latest('renewal_date'),
         ])->latest();
+        $canManage = $request->user()?->can('business.manage') ?? false;
+        $canManagePermits = $request->user()?->can('business.permits.manage') ?? false;
+        $canDelete = $request->user()?->can('business.delete') ?? false;
 
         match ($request->input('status_filter')) {
             'active' => $businesses
@@ -526,20 +545,31 @@ class BusinessController extends Controller
             ->addColumn('current_permit_id', function ($business) {
                 return $this->currentPermit($business)?->id;
             })
-            ->addColumn('action', function ($business) {
+            ->addColumn('action', function ($business) use ($canManage, $canManagePermits, $canDelete) {
                 $permit = $this->currentPermit($business);
                 $permitId = $permit?->id;
                 $permitStatus = $permit ? $this->displayPermitStatus($permit) : null;
                 $hasRenewablePermit = $permit && ! in_array($permitStatus, ['Revoked', 'Suspended'], true);
                 $canIssue = ! $permit || ! in_array($permitStatus, ['Approved', 'Renewed'], true);
 
-                return '<div class="btn-group btn-group-sm" role="group">
-                    <button type="button" class="btn btn-light" title="Edit business" data-business-action="edit" data-business-id="' . e($business->id) . '"><i class="bi bi-pencil"></i></button>
-                    <button type="button" class="btn btn-light" title="Issue permit" data-business-action="issue" data-business-id="' . e($business->id) . '" ' . ($canIssue ? '' : 'disabled') . '><i class="bi bi-receipt"></i></button>
-                    <button type="button" class="btn btn-light" title="Renew permit" data-business-action="renew" data-business-id="' . e($business->id) . '" data-permit-id="' . e($permitId ?? '') . '" ' . ($hasRenewablePermit ? '' : 'disabled') . '><i class="bi bi-arrow-clockwise"></i></button>
-                    <button type="button" class="btn btn-light" title="Permit history" data-business-action="history" data-business-id="' . e($business->id) . '"><i class="bi bi-clock-history"></i></button>
-                    <button type="button" class="btn btn-light text-danger" title="Delete row" data-business-action="delete" data-business-id="' . e($business->id) . '"><i class="bi bi-trash"></i></button>
-                </div>';
+                $actions = '<div class="btn-group btn-group-sm" role="group">';
+
+                if ($canManage) {
+                    $actions .= '<button type="button" class="btn btn-light" title="Edit business" data-business-action="edit" data-business-id="' . e($business->id) . '"><i class="bi bi-pencil"></i></button>';
+                }
+
+                if ($canManagePermits) {
+                    $actions .= '<button type="button" class="btn btn-light" title="Issue permit" data-business-action="issue" data-business-id="' . e($business->id) . '" ' . ($canIssue ? '' : 'disabled') . '><i class="bi bi-receipt"></i></button>
+                    <button type="button" class="btn btn-light" title="Renew permit" data-business-action="renew" data-business-id="' . e($business->id) . '" data-permit-id="' . e($permitId ?? '') . '" ' . ($hasRenewablePermit ? '' : 'disabled') . '><i class="bi bi-arrow-clockwise"></i></button>';
+                }
+
+                $actions .= '<button type="button" class="btn btn-light" title="Permit history" data-business-action="history" data-business-id="' . e($business->id) . '"><i class="bi bi-clock-history"></i></button>';
+
+                if ($canDelete) {
+                    $actions .= '<button type="button" class="btn btn-light text-danger" title="Delete row" data-business-action="delete" data-business-id="' . e($business->id) . '"><i class="bi bi-trash"></i></button>';
+                }
+
+                return $actions . '</div>';
             })
             ->rawColumns(['owner_names', 'status_badge', 'permit_status_badge', 'action'])
             ->toJson();
@@ -547,6 +577,8 @@ class BusinessController extends Controller
 
     public function issuePermit(Request $request, Business $business): JsonResponse
     {
+        $this->authorize('business.permits.manage');
+
         $officialId = $this->currentOfficialId();
 
         $validated = $request->validate([
@@ -589,6 +621,8 @@ class BusinessController extends Controller
 
     public function renewPermit(Request $request, Business $business, BusinessPermit $permit): JsonResponse
     {
+        $this->authorize('business.permits.manage');
+
         if ($permit->business_id !== $business->id) {
             abort(404);
         }
@@ -643,6 +677,8 @@ class BusinessController extends Controller
 
     public function permitHistory(Business $business): JsonResponse
     {
+        $this->authorize('business.view');
+
         $business->load([
             'business_permits' => fn ($query) => $query->latest('issued_date')->latest(),
             'business_permits.renewals' => fn ($query) => $query->latest('renewal_date'),

@@ -18,7 +18,6 @@ class OfficialAssignment extends Model
     ];
 
     protected $casts = [
-        'official_id' => 'integer',
         'committee_id' => 'integer',
     ];
 

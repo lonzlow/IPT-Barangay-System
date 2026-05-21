@@ -17,6 +17,8 @@
     .metric-label { font-size:10.5px; color:#64748b; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .chair-line { font-size:12.5px; color:#475569; }
     .chair-line strong { color:#0f172a; }
+    .assignment-list { display:flex; flex-wrap:wrap; gap:6px; }
+    .assignment-pill { background:#f8fafc; border:1px solid #e2e8f0; border-radius:999px; color:#475569; font-size:11px; font-weight:700; padding:5px 9px; }
 </style>
 @endsection
 
@@ -66,6 +68,21 @@
 
             <p class="committee-desc">{{ $committee->description ?: 'No description has been added yet.' }}</p>
 
+            @if($committee->assignments->isNotEmpty())
+                <div class="assignment-list">
+                    @foreach($committee->assignments->take(4) as $assignment)
+                        @php
+                            $assignedResident = $assignment->official?->resident;
+                            $assignedName = $assignedResident ? trim($assignedResident->first_name . ' ' . $assignedResident->last_name) : 'Official';
+                        @endphp
+                        <span class="assignment-pill">{{ $assignment->designation }}: {{ $assignedName }}</span>
+                    @endforeach
+                    @if($committee->assignments->count() > 4)
+                        <span class="assignment-pill">+{{ $committee->assignments->count() - 4 }} more</span>
+                    @endif
+                </div>
+            @endif
+
             <div class="metric-row mt-auto">
                 <div class="metric-box">
                     <div class="metric-value">{{ $committee->records_count }}</div>
@@ -87,8 +104,12 @@
         </div>
     @empty
         <div class="table-card p-4 text-center">
-            <div class="fw-bold mb-1">No committees found</div>
-            <div class="text-muted" style="font-size:13px;">Seed the default committees or add one manually.</div>
+            <div class="fw-bold mb-1">
+                {{ $isRestrictedCommitteeUser ? 'No committees assigned to your account yet' : 'No committees found' }}
+            </div>
+            <div class="text-muted" style="font-size:13px;">
+                {{ $isRestrictedCommitteeUser ? 'Ask an administrator to assign your official profile to a committee.' : 'Seed the default committees or add one manually.' }}
+            </div>
         </div>
     @endforelse
 </div>
@@ -125,7 +146,7 @@
                         <div class="col-md-6">
                             <label class="form-label fw-600">Chairperson</label>
                             <select class="form-select" name="chairperson_id">
-                                <option value="">Select role ID 5 official</option>
+                                <option value="">Select Kagawad or SK Chairperson</option>
                                 @foreach($chairmanCandidates as $official)
                                     <option value="{{ $official->id }}">
                                         {{ trim(($official->resident?->first_name ?? '') . ' ' . ($official->resident?->last_name ?? '')) }}

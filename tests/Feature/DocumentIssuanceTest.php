@@ -5,6 +5,9 @@ use App\Models\Business;
 use App\Models\BusinessOwner;
 use App\Models\Document;
 use App\Models\DocumentTemplate;
+use App\Models\Household;
+use App\Models\Purok;
+use App\Models\Resident;
 use App\Models\Signature;
 use Illuminate\Support\Facades\Storage;
 
@@ -185,6 +188,93 @@ test('empty signature_id does not fail validation on issue', function () {
         'signature_id' => '',
         'issued_by' => 'Barangay Secretary',
     ])->assertCreated();
+});
+
+test('document resident search returns select2 results from resident records', function () {
+    $user = documentViewerUser();
+    $purok = Purok::create(['purok_name' => 'Purok Search']);
+    $household = Household::forceCreate([
+        'purok_id' => $purok->id,
+        'house_number' => '789',
+        'street' => 'Search Street',
+        'family_size' => 2,
+    ]);
+
+    $activeResident = Resident::factory()->create([
+        'resident_number' => 'BR-SEARCH-0001',
+        'first_name' => 'Maria',
+        'middle_name' => 'Santos',
+        'last_name' => 'Reyes',
+        'suffix' => null,
+        'household_id' => $household->id,
+        'residency_status' => 'Active',
+    ]);
+
+    $transferredResident = Resident::factory()->create([
+        'resident_number' => 'BR-SEARCH-0002',
+        'first_name' => 'Mario',
+        'middle_name' => null,
+        'last_name' => 'Reyes',
+        'suffix' => 'Jr.',
+        'household_id' => $household->id,
+        'residency_status' => 'Transferred',
+    ]);
+
+    Resident::factory()->create([
+        'resident_number' => 'BR-OTHER-0001',
+        'first_name' => 'Ana',
+        'last_name' => 'Lopez',
+        'household_id' => $household->id,
+        'residency_status' => 'Active',
+    ]);
+
+    $response = $this->actingAs($user)->getJson(route('documents.residents.search', ['q' => 'Reyes']));
+
+    $response->assertOk()
+        ->assertJsonStructure([
+            'results' => [
+                '*' => ['id', 'text', 'name', 'resident_number', 'residency_status', 'household_purok'],
+            ],
+        ]);
+
+    $results = collect($response->json('results'));
+
+    expect($results->pluck('id')->all())
+        ->toContain($activeResident->id)
+        ->toContain($transferredResident->id)
+        ->not->toContain(Resident::where('resident_number', 'BR-OTHER-0001')->value('id'));
+
+    expect($results->firstWhere('id', $transferredResident->id)['text'])
+        ->toContain('BR-SEARCH-0002')
+        ->toContain('Transferred')
+        ->toContain('Purok Search');
+});
+
+test('document resident search limits select2 results', function () {
+    $user = documentViewerUser();
+    $purok = Purok::create(['purok_name' => 'Purok Limit']);
+    $household = Household::forceCreate([
+        'purok_id' => $purok->id,
+        'house_number' => '101',
+        'street' => 'Limit Street',
+        'family_size' => 25,
+    ]);
+
+    foreach (range(1, 25) as $index) {
+        Resident::factory()->create([
+            'resident_number' => 'BR-LIMIT-' . str_pad((string) $index, 4, '0', STR_PAD_LEFT),
+            'first_name' => 'Limit',
+            'last_name' => 'Resident ' . str_pad((string) $index, 2, '0', STR_PAD_LEFT),
+            'household_id' => $household->id,
+            'residency_status' => 'Active',
+        ]);
+    }
+
+    $response = $this->actingAs($user)->getJson(route('documents.residents.search', ['q' => 'Limit']));
+
+    $response->assertOk();
+
+    expect($response->json('results'))->toHaveCount(20);
 });
 
 test('document can be issued with a selected signature', function () {

@@ -17,6 +17,8 @@ class ResidentController extends Controller
      */
     public function index()
     {
+        $this->authorize('residents.view');
+
         $totalResidents = Resident::count();
         $activeCount = Resident::where('residency_status', 'Active')->count();
         $deceasedCount = Resident::where('residency_status', 'Deceased')->count();
@@ -76,6 +78,8 @@ class ResidentController extends Controller
      */
     public function create()
     {
+        $this->authorize('residents.manage');
+
         $households = Household::with('purok')->orderBy('house_number')->get();
 
         return view('residents.create', compact('households'));
@@ -86,6 +90,8 @@ class ResidentController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('residents.manage');
+
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'middle_name' => ['nullable', 'string', 'max:255'],
@@ -121,7 +127,7 @@ class ResidentController extends Controller
      */
     public function edit(string $id)
     {
-        $resident = Resident::withTrashed()->findOrFail($id);
+        $resident = Resident::findOrFail($id);
         $households = Household::with('purok')->orderBy('house_number')->get();
 
         // Kung AJAX ang tumawag, JSON lang ang ibabalik para sa Modal natin
@@ -137,7 +143,7 @@ class ResidentController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $resident = Resident::withTrashed()->findOrFail($id);
+        $resident = Resident::findOrFail($id);
 
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
@@ -170,6 +176,8 @@ class ResidentController extends Controller
      */
     public function destroy(string $id)
     {
+        $this->authorize('residents.delete');
+
         $resident = Resident::findOrFail($id);
         $resident->delete();
 
@@ -184,21 +192,9 @@ class ResidentController extends Controller
 
     public function getResidents(Request $request)
     {
-        $user = auth()->user();
-        $isAdminOrSecretary = false;
+        $residents = Resident::with(['household.purok']);
 
-        if ($user) {
-            $roleId = $user->role_id ?? ($user->official->role_id ?? null);
-
-            if ($roleId !== null && in_array((int) $roleId, [1, 3])) {
-                $isAdminOrSecretary = true;
-            }
-        }
-
-        // Kung admin/secretary, isama ang deleted (withTrashed). Kung hindi, active lang.
-        $residents = $isAdminOrSecretary ? Resident::withTrashed() : Resident::query();
-        $residents->with(['household.purok']);
-
+        // Apply custom filters (not search - Yajra handles search automatically)
         if ($request->has('gender') && $request->input('gender')) {
             $residents->where('gender', $request->input('gender'));
         }
@@ -273,25 +269,18 @@ class ResidentController extends Controller
                         return '<span class="badge p-2 bg-info text-dark">' . ($status ?: 'Unknown') . '</span>' . $deletedBadge;
                 }
             })
-            ->addColumn('action', function ($resident) use ($isAdminOrSecretary) {
-                // Edit button - lalabas lang kung HINDI deleted
-                $editBtn = !$resident->trashed()
-                    ? '<button type="button" class="btn btn-sm btn-light border" style="border-radius:6px;padding:3px 8px;" onclick="openEditModal(\'' . $resident->id . '\')" title="Edit"><i class="bi bi-pencil" style="font-size:13px;"></i></button>'
-                    : '';
-
-                $actionBtn = '';
-
-                if ($isAdminOrSecretary) {
-                    if ($resident->trashed()) {
-                        // Kung deleted: Restore button lang
-                        $actionBtn = '<button type="button" class="btn btn-sm btn-light text-success border" style="border-radius:6px;padding:3px 8px;" onclick="confirmRestore(\'' . $resident->id . '\')" title="Restore"><i class="bi bi-arrow-counterclockwise" style="font-size:13px;"></i></button>';
-                    } else {
-                        // Kung active: Delete button
-                        $actionBtn = '<button type="button" class="btn btn-sm btn-light text-danger border" style="border-radius:6px;padding:3px 8px;" onclick="confirmDelete(\'' . $resident->id . '\')" title="Delete"><i class="bi bi-trash" style="font-size:13px;"></i></button>';
-                    }
-                }
-
-                return '<div class="d-flex gap-1">' . $editBtn . $actionBtn . '</div>';
+            ->addColumn('action', function ($resident) {
+                return '<div class="d-flex gap-1">
+                    <a href="' . route('residents.edit', $resident->id) . '" class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Edit">
+                        <i class="bi bi-pencil" style="font-size:13px;"></i>
+                    </a>
+                    <a href="' . route('residents.edit', ['resident' => $resident->id, 'section' => 'status']) . '" class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Update Status">
+                        <i class="bi bi-shield-fill" style="font-size:13px;"></i>
+                    </a>
+                    <a href="' . route('residents.edit', ['resident' => $resident->id, 'section' => 'deactivate']) . '" class="btn btn-sm btn-light text-danger" style="border-radius:6px;padding:3px 8px;" title="Deactivate">
+                        <i class="bi bi-person-x-fill" style="font-size:13px;"></i>
+                    </a>
+                </div>';
             })
             ->rawColumns(['voter', 'civil_status', 'action'])
             ->make(true);
@@ -313,6 +302,8 @@ class ResidentController extends Controller
      */
     public function demographics()
     {
+        $this->authorize('residents.view');
+
         $residents = Resident::all();
         $totalResidents = $residents->count();
 
@@ -366,6 +357,8 @@ class ResidentController extends Controller
      */
     public function exportPDF(Request $request)
     {
+        $this->authorize('residents.view');
+
         $residents = Resident::with(['household.purok'])->get();
 
         $data = [

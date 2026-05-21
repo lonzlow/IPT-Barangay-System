@@ -23,6 +23,8 @@ class DocumentController extends Controller
 
     public function index()
     {
+        $this->authorize('documents.view');
+
         $templates = DocumentTemplate::where('is_active', true)->orderBy('name')->get();
         $residents = Resident::with('household.purok')
             ->where('residency_status', 'Active')
@@ -91,6 +93,8 @@ class DocumentController extends Controller
 
     public function create()
     {
+        $this->authorize('documents.manage');
+
         $residents = Resident::where('residency_status', 'Active')->orderBy('last_name')->get();
         $templates = DocumentTemplate::where('is_active', true)->orderBy('name')->get();
         $signatures = Signature::with('official.resident')->get();
@@ -100,6 +104,8 @@ class DocumentController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorize('documents.manage');
+
         $validated = $this->validatedDocumentData($request);
         $resident = $this->residentForDocument($validated['resident_id']);
         $template = DocumentTemplate::findOrFail($validated['document_template_id']);
@@ -156,6 +162,8 @@ class DocumentController extends Controller
 
     public function show(Request $request, Document $document)
     {
+        $this->authorize('documents.view');
+
         $document->load(['resident.household.purok', 'template', 'business']);
         $document->loadMissing('signature.official.resident');
 
@@ -184,6 +192,8 @@ class DocumentController extends Controller
 
     public function edit(Document $document)
     {
+        $this->authorize('documents.manage');
+
         $residents = Resident::where('residency_status', 'Active')->orderBy('last_name')->get();
         $templates = DocumentTemplate::where('is_active', true)->orderBy('name')->get();
         $signatures = Signature::with('official.resident')->get();
@@ -193,6 +203,8 @@ class DocumentController extends Controller
 
     public function update(Request $request, Document $document)
     {
+        $this->authorize('documents.manage');
+
         $validated = $this->validatedDocumentData($request, true);
         $resident = $this->residentForDocument($validated['resident_id']);
         $template = DocumentTemplate::findOrFail($validated['document_template_id']);
@@ -251,6 +263,8 @@ class DocumentController extends Controller
 
     public function destroy(Request $request, Document $document)
     {
+        $this->authorize('documents.delete');
+
         $document->load(['resident', 'template']);
         $this->logDocumentActivity('Deleted Document', $document);
         $document->delete();
@@ -264,6 +278,8 @@ class DocumentController extends Controller
 
     public function preview(Request $request): JsonResponse
     {
+        $this->authorize('documents.manage');
+
         $validated = $this->validatedDocumentData($request, false, true);
         $resident = $this->residentForDocument($validated['resident_id']);
         $template = DocumentTemplate::findOrFail($validated['document_template_id']);
@@ -313,6 +329,8 @@ class DocumentController extends Controller
 
     public function exportPdf(Document $document)
     {
+        $this->authorize('documents.view');
+
         $document->load(['resident.household.purok', 'template', 'business', 'signature', 'signature.official']);
 
         $signature = $document->signature;
@@ -340,6 +358,8 @@ class DocumentController extends Controller
 
     public function getResidentDocuments(Resident $resident): JsonResponse
     {
+        $this->authorize('documents.view');
+
         $documents = Document::where('resident_id', $resident->id)
             ->with(['template', 'business'])
             ->latest()
@@ -350,6 +370,8 @@ class DocumentController extends Controller
 
     public function residentBusinesses(Resident $resident): JsonResponse
     {
+        $this->authorize('documents.manage');
+
         $businesses = Business::query()
             ->where('status', 'Active')
             ->whereHas('business_owners', fn ($query) => $query->where('resident_id', $resident->id))
@@ -359,8 +381,46 @@ class DocumentController extends Controller
         return response()->json($businesses);
     }
 
+    public function residentsSearch(Request $request): JsonResponse
+    {
+        $this->authorize('documents.view');
+
+        $search = trim((string) $request->query('q', ''));
+
+        $residents = Resident::query()
+            ->with('household.purok')
+            ->select([
+                'id',
+                'resident_number',
+                'first_name',
+                'middle_name',
+                'last_name',
+                'suffix',
+                'residency_status',
+                'household_id',
+            ])
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('resident_number', 'like', "%{$search}%")
+                        ->orWhere('first_name', 'like', "%{$search}%")
+                        ->orWhere('middle_name', 'like', "%{$search}%")
+                        ->orWhere('last_name', 'like', "%{$search}%")
+                        ->orWhere('suffix', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->limit(20)
+            ->get()
+            ->map(fn (Resident $resident) => $this->residentSearchResult($resident));
+
+        return response()->json(['results' => $residents]);
+    }
+
     public function byTemplate($templateId)
     {
+        $this->authorize('documents.view');
+
         $template = DocumentTemplate::findOrFail($templateId);
         $documents = Document::where('document_template_id', $templateId)
             ->with(['resident', 'business'])
@@ -372,6 +432,8 @@ class DocumentController extends Controller
 
     public function data()
     {
+        $this->authorize('documents.view');
+
         $documents = Document::with(['resident', 'template', 'business'])->latest();
 
         if ($residentId = request('resident_id')) {
@@ -440,6 +502,33 @@ class DocumentController extends Controller
     private function residentForDocument(string $residentId): Resident
     {
         return Resident::with(['household.purok', 'business_owner.businesses'])->findOrFail($residentId);
+    }
+
+    private function residentSearchResult(Resident $resident): array
+    {
+        $name = $this->residentName($resident);
+        $purok = $resident->household?->purok?->purok_name ?? 'N/A';
+        $number = $resident->resident_number ?: 'No resident no.';
+        $status = $resident->residency_status ?: 'Unknown';
+
+        return [
+            'id' => $resident->id,
+            'text' => "{$name} - {$number} ({$status}, {$purok})",
+            'name' => $name,
+            'resident_number' => $resident->resident_number,
+            'residency_status' => $resident->residency_status,
+            'household_purok' => $purok,
+        ];
+    }
+
+    private function residentName(Resident $resident): string
+    {
+        return trim(collect([
+            $resident->first_name,
+            $resident->middle_name,
+            $resident->last_name,
+            $resident->suffix,
+        ])->filter()->implode(' '));
     }
 
     private function validatedBusiness(DocumentTemplate $template, Resident $resident, ?string $businessId): ?Business

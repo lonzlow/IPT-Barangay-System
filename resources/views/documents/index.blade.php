@@ -26,6 +26,10 @@
         .select2-container--default .select2-selection--single .select2-selection__rendered { line-height:36px; padding-left:12px; color:#1e293b; font-size:13px; }
         .select2-container--default .select2-selection--single .select2-selection__arrow { height:36px; }
         .select2-container--open { z-index:1065; }
+        .resident-results {
+            max-height: 220px;
+            overflow-y: auto;
+        }
     </style>
 @endsection
 
@@ -160,12 +164,9 @@
                 <div class="panel-body">
                     <div class="mb-3">
                         <label class="form-label" style="font-size:12.5px;font-weight:600;">Resident</label>
-                        <select id="quickResidentSelect" class="form-select">
-                            <option value="">-- Select Resident --</option>
-                            @foreach($residents as $resident)
-                                <option value="{{ $resident->id }}">{{ $resident->first_name }} {{ $resident->last_name }} ({{ $resident->household?->purok?->purok_name ?? 'N/A' }})</option>
-                            @endforeach
-                        </select>
+                        <input type="hidden" id="quickResidentIdInput">
+                        <input type="text" id="quickResidentSearchInput" class="form-control" style="font-size:13.5px;border-radius:8px;" placeholder="Type a resident name or number" autocomplete="off">
+                        <select id="quickResidentResults" class="form-select d-none mt-2 resident-results" size="5"></select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" style="font-size:12.5px;font-weight:600;">Document Type</label>
@@ -248,17 +249,20 @@
             axios.defaults.headers.common['Accept'] = 'application/json';
 
             const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+            const residentSearchUrl = '{{ route("documents.residents.search") }}';
+            let residentSearchTimer = null;
+            let quickResidentSearchTimer = null;
 
             function initSelect2() {
                 if (typeof $.fn.select2 !== 'function') return;
 
-                $('#residentSelect, #templateSelect, #businessSelect, #signatureSelect').select2({
+                $('#templateSelect, #businessSelect, #signatureSelect').select2({
                     width: '100%',
                     dropdownParent: $('#documentFormModal'),
                     allowClear: true,
                 });
 
-                $('#residentFilterSelect, #templateFilterSelect, #quickResidentSelect, #quickTemplateSelect, #quickBusinessSelect').select2({
+                $('#residentFilterSelect, #templateFilterSelect, #quickTemplateSelect, #quickBusinessSelect').select2({
                     width: '100%',
                     allowClear: true,
                 });
@@ -266,6 +270,72 @@
 
             function setSelect2Value(selector, value) {
                 $(selector).val(value || null).trigger('change');
+            }
+
+            function setResidentSelection(inputSelector, hiddenSelector, resultsSelector, resident) {
+                const input = document.querySelector(inputSelector);
+                const hidden = document.querySelector(hiddenSelector);
+                const results = document.querySelector(resultsSelector);
+
+                if (hidden) hidden.value = resident?.id || '';
+                if (input) input.value = resident ? (resident.displayText || resident.text || residentDisplayText(resident)) : '';
+                if (results) {
+                    results.innerHTML = '';
+                    results.classList.add('d-none');
+                }
+            }
+
+            async function searchResidents(query) {
+                const response = await axios.get(residentSearchUrl, { params: { q: query } });
+                return response.data?.results || [];
+            }
+
+            async function updateResidentSuggestions(inputSelector, hiddenSelector, resultsSelector) {
+                const input = document.querySelector(inputSelector);
+                const hidden = document.querySelector(hiddenSelector);
+                const results = document.querySelector(resultsSelector);
+                if (!input || !hidden || !results) return;
+
+                const query = input.value.trim();
+                hidden.value = '';
+
+                if (query.length < 2) {
+                    results.innerHTML = '';
+                    results.classList.add('d-none');
+                    return;
+                }
+
+                const residents = await searchResidents(query);
+                results.innerHTML = '';
+
+                if (!residents.length) {
+                    const option = new Option('No residents found', '');
+                    option.disabled = true;
+                    results.appendChild(option);
+                    results.classList.remove('d-none');
+                    return;
+                }
+
+                residents.forEach(resident => {
+                    const option = new Option(resident.text, resident.id);
+                    option.dataset.residentText = resident.text;
+                    results.appendChild(option);
+                });
+
+                results.classList.remove('d-none');
+            }
+
+            function residentDisplayText(resident) {
+                if (!resident) return '';
+                const name = [resident.first_name, resident.middle_name, resident.last_name, resident.suffix].filter(Boolean).join(' ');
+                const number = resident.resident_number || 'No resident no.';
+                const status = resident.residency_status || 'Unknown';
+                const purok = resident.household?.purok?.purok_name || 'N/A';
+                return `${name} - ${number} (${status}, ${purok})`;
+            }
+
+            function ensureResidentSelectOption(selector, resident) {
+                setResidentSelection('#residentSearchInput', '#residentIdInput', '#residentResults', resident);
             }
 
             function clearFormErrors() {
@@ -320,7 +390,7 @@
                     resetBusinessSelect('#businessSelect');
                     return;
                 }
-                await loadBusinesses($('#residentSelect').val(), '#businessSelect', selectedBusinessId);
+                await loadBusinesses($('#residentIdInput').val(), '#businessSelect', selectedBusinessId);
             }
 
             async function syncQuickBusinessGroup() {
@@ -330,7 +400,7 @@
                     resetBusinessSelect('#quickBusinessSelect');
                     return;
                 }
-                await loadBusinesses($('#quickResidentSelect').val(), '#quickBusinessSelect');
+                await loadBusinesses($('#quickResidentIdInput').val(), '#quickBusinessSelect');
             }
 
             function openCreateModal(templateId = null) {
@@ -343,7 +413,7 @@
                 document.getElementById('statusGroup').classList.add('d-none');
                 document.getElementById('documentFormModalLabel').textContent = 'Issue New Document';
                 clearFormErrors();
-                setSelect2Value('#residentSelect', '');
+                setResidentSelection('#residentSearchInput', '#residentIdInput', '#residentResults', null);
                 setSelect2Value('#templateSelect', templateId || '');
                 setSelect2Value('#businessSelect', '');
                 setSelect2Value('#signatureSelect', '');
@@ -376,7 +446,7 @@
                     document.querySelector('input[name="issued_by"]').value = doc.issued_by || '';
                     document.querySelector('select[name="status"]').value = doc.status || 'Issued';
 
-                    setSelect2Value('#residentSelect', doc.resident_id || '');
+                    setResidentSelection('#residentSearchInput', '#residentIdInput', '#residentResults', doc.resident);
                     setSelect2Value('#templateSelect', doc.document_template_id || '');
                     setSelect2Value('#signatureSelect', doc.signature_id || '');
                     syncSignatureOfficial();
@@ -403,7 +473,7 @@
             async function generatePreviewFromQuickForm() {
                 const payload = new URLSearchParams();
                 payload.append('_token', csrfToken);
-                payload.append('resident_id', $('#quickResidentSelect').val() || '');
+                payload.append('resident_id', document.getElementById('quickResidentIdInput').value || '');
                 payload.append('document_template_id', $('#quickTemplateSelect').val() || '');
                 payload.append('business_id', $('#quickBusinessSelect').val() || '');
                 payload.append('purpose', document.getElementById('quickPurpose').value || '');
@@ -483,17 +553,17 @@
                     openCreateModal(this.dataset.templateId);
                 });
 
-                $('#residentSelect, #templateSelect').on('change', function () {
+                $('#templateSelect').on('change', function () {
                     selectedBusinessId = $('#businessSelect').val();
                     syncBusinessGroup();
                 });
 
                 $('#signatureSelect').on('change', syncSignatureOfficial);
 
-                $('#quickResidentSelect, #quickTemplateSelect').on('change', syncQuickBusinessGroup);
+                $('#quickTemplateSelect').on('change', syncQuickBusinessGroup);
                 $('#quickGenerateBtn').on('click', generatePreviewFromQuickForm);
                 $('#quickClearBtn').on('click', function () {
-                    setSelect2Value('#quickResidentSelect', '');
+                    setResidentSelection('#quickResidentSearchInput', '#quickResidentIdInput', '#quickResidentResults', null);
                     setSelect2Value('#quickTemplateSelect', '');
                     setSelect2Value('#quickBusinessSelect', '');
                     document.getElementById('quickPurpose').value = '';
@@ -694,6 +764,54 @@
 
                 submitFormBtn.addEventListener('click', submitDocumentForm);
                 documentForm.addEventListener('submit', submitDocumentForm);
+
+                document.getElementById('residentSearchInput').addEventListener('input', function () {
+                    clearTimeout(residentSearchTimer);
+                    residentSearchTimer = setTimeout(() => {
+                        updateResidentSuggestions('#residentSearchInput', '#residentIdInput', '#residentResults').catch(() => {
+                            const results = document.getElementById('residentResults');
+                            results.innerHTML = '';
+                            const option = new Option('Unable to load residents', '');
+                            option.disabled = true;
+                            results.appendChild(option);
+                            results.classList.remove('d-none');
+                        });
+                    }, 250);
+                });
+
+                document.getElementById('quickResidentSearchInput').addEventListener('input', function () {
+                    clearTimeout(quickResidentSearchTimer);
+                    quickResidentSearchTimer = setTimeout(() => {
+                        updateResidentSuggestions('#quickResidentSearchInput', '#quickResidentIdInput', '#quickResidentResults').catch(() => {
+                            const results = document.getElementById('quickResidentResults');
+                            results.innerHTML = '';
+                            const option = new Option('Unable to load residents', '');
+                            option.disabled = true;
+                            results.appendChild(option);
+                            results.classList.remove('d-none');
+                        });
+                    }, 250);
+                });
+
+                document.getElementById('residentResults').addEventListener('change', function () {
+                    const option = this.selectedOptions[0];
+                    if (!option?.value) return;
+                    setResidentSelection('#residentSearchInput', '#residentIdInput', '#residentResults', {
+                        id: option.value,
+                        displayText: option.dataset.residentText || option.textContent,
+                    });
+                    syncBusinessGroup();
+                });
+
+                document.getElementById('quickResidentResults').addEventListener('change', function () {
+                    const option = this.selectedOptions[0];
+                    if (!option?.value) return;
+                    setResidentSelection('#quickResidentSearchInput', '#quickResidentIdInput', '#quickResidentResults', {
+                        id: option.value,
+                        displayText: option.dataset.residentText || option.textContent,
+                    });
+                    syncQuickBusinessGroup();
+                });
 
                 initDocumentsTable();
             });

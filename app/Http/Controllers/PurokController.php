@@ -14,6 +14,8 @@ class PurokController extends Controller
      */
     public function index()
     {
+        $this->authorize('households.view');
+
         $puroks = Purok::with([
                 'leader',
                 'households.residents:id,household_id,voter_status',
@@ -42,6 +44,8 @@ class PurokController extends Controller
      */
     public function create()
     {
+        $this->authorize('households.manage');
+
         return view('puroks.create');
     }
 
@@ -50,6 +54,8 @@ class PurokController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorize('households.manage');
+
         $validated = $request->validate([
             'purok_name' => 'required|string|unique:puroks,purok_name',
             'description' => 'nullable|string',
@@ -66,6 +72,8 @@ class PurokController extends Controller
      */
     public function show(Purok $purok)
     {
+        $this->authorize('households.view');
+
         $purok->load([
             'leader',
             'households.head_resident',
@@ -85,6 +93,8 @@ class PurokController extends Controller
      */
     public function edit(Purok $purok)
     {
+        $this->authorize('households.manage');
+
         $residents = Resident::whereHas('household', fn ($query) => $query->where('purok_id', $purok->id))
             ->orderBy('last_name')
             ->orderBy('first_name')
@@ -99,6 +109,8 @@ class PurokController extends Controller
      */
     public function update(Request $request, Purok $purok)
     {
+        $this->authorize('households.manage');
+
         $validated = $request->validate([
             'purok_name' => 'required|string|unique:puroks,purok_name,' . $purok->id,
             'description' => 'nullable|string',
@@ -123,6 +135,8 @@ class PurokController extends Controller
      */
     public function destroy(Purok $purok)
     {
+        $this->authorize('households.delete');
+
         // Check if purok has households
         if ($purok->households()->count() > 0) {
             return redirect()->route('puroks.index')

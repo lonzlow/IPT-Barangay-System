@@ -6,6 +6,7 @@ use App\Models\Committee;
 use App\Models\CommitteeRecord;
 use App\Models\Official;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 
 class CommitteeController extends Controller
@@ -16,20 +17,31 @@ class CommitteeController extends Controller
     public function index()
     {
         $committees = Committee::query()
-            ->with(['headOfficial.resident', 'headOfficial.role'])
+            ->with(['headOfficial.resident', 'headOfficial.role', 'assignments.official.resident', 'assignments.official.role'])
             ->withCount([
                 'records',
                 'records as media_count' => fn ($query) => $query->whereIn('record_type', ['photo', 'video']),
                 'records as report_count' => fn ($query) => $query->whereIn('record_type', ['report', 'blotter_incident', 'resolution_policy', 'project_proposal', 'financial_record', 'permit_contract']),
                 'records as activity_count' => fn ($query) => $query->whereIn('record_type', ['activity', 'training_seminar']),
             ])
+            ->when(! $this->canViewAllCommittees(), function ($query) {
+                $officialId = request()->user()?->official_id;
+
+                if (! $officialId) {
+                    $query->whereRaw('1 = 0');
+                    return;
+                }
+
+                $query->whereHas('assignments', fn ($assignmentQuery) => $assignmentQuery->where('official_id', $officialId));
+            })
             ->orderBy('id')
             ->paginate(12);
 
         $chairmanCandidates = $this->chairmanCandidates();
         $recordTypes = CommitteeRecord::TYPES;
+        $isRestrictedCommitteeUser = ! $this->canViewAllCommittees();
 
-        return view('committees.index', compact('committees', 'chairmanCandidates', 'recordTypes'));
+        return view('committees.index', compact('committees', 'chairmanCandidates', 'recordTypes', 'isRestrictedCommitteeUser'));
     }
 
     /**
@@ -37,6 +49,8 @@ class CommitteeController extends Controller
      */
     public function create()
     {
+        $this->authorize('committees.manage');
+
         $officials = $this->chairmanCandidates();
         return view('committees.create', compact('officials'));
     }
@@ -53,13 +67,15 @@ class CommitteeController extends Controller
             'slug' => 'nullable|string|max:120|unique:committees,slug',
             'chairperson_id' => [
                 'nullable',
-                Rule::exists('officials', 'id')->where('role_id', 5)->where('is_active', true),
+                Rule::exists('officials', 'id')->where('is_active', true),
             ],
             'chair_label' => 'nullable|string|max:120',
             'description' => 'nullable|string',
             'allowed_record_types' => 'nullable|array',
             'allowed_record_types.*' => ['string', Rule::in(array_keys(CommitteeRecord::TYPES))],
         ]);
+
+        $this->validateChairpersonRole($validated['chairperson_id'] ?? null);
 
         $committee = Committee::create($validated);
 
@@ -78,10 +94,13 @@ class CommitteeController extends Controller
      */
     public function show(Committee $committee)
     {
+        abort_unless($this->canAccessCommittee($committee), 403);
+
         $committee->load([
             'headOfficial.resident',
             'headOfficial.role',
             'assignments.official.resident',
+            'assignments.official.role',
             'records.uploadedBy.official.resident',
         ]);
 
@@ -114,6 +133,8 @@ class CommitteeController extends Controller
      */
     public function edit(Committee $committee)
     {
+        $this->authorize('committees.manage');
+
         if (request()->expectsJson()) {
             return response()->json([
                 'success' => true,
@@ -136,13 +157,15 @@ class CommitteeController extends Controller
             'slug' => 'nullable|string|max:120|unique:committees,slug,' . $committee->id,
             'chairperson_id' => [
                 'nullable',
-                Rule::exists('officials', 'id')->where('role_id', 5)->where('is_active', true),
+                Rule::exists('officials', 'id')->where('is_active', true),
             ],
             'chair_label' => 'nullable|string|max:120',
             'description' => 'nullable|string',
             'allowed_record_types' => 'nullable|array',
             'allowed_record_types.*' => ['string', Rule::in(array_keys(CommitteeRecord::TYPES))],
         ]);
+
+        $this->validateChairpersonRole($validated['chairperson_id'] ?? null);
 
         $committee->update($validated);
 
@@ -179,9 +202,65 @@ class CommitteeController extends Controller
         return Official::query()
             ->with(['resident', 'role'])
             ->where('is_active', true)
-            ->where('role_id', 5)
+            ->whereHas('role', fn ($query) => $query->whereIn('role_name', [
+                'Kagawad',
+                'SK Chair',
+                'SK Chairperson',
+            ]))
             ->get()
             ->sortBy(fn (Official $official) => $official->resident?->last_name . ', ' . $official->resident?->first_name)
             ->values();
+    }
+
+    private function canViewAllCommittees(): bool
+    {
+        return request()->user()?->official?->hasAnyRole([
+            'Admin',
+            'Punong Barangay',
+            'Secretary',
+            'Barangay Secretary',
+            'Auditor',
+            'Auditor / Inspector',
+        ]) ?? false;
+    }
+
+    private function canAccessCommittee(Committee $committee): bool
+    {
+        if ($this->canViewAllCommittees()) {
+            return true;
+        }
+
+        $officialId = request()->user()?->official_id;
+
+        if (! $officialId) {
+            return false;
+        }
+
+        return $committee->assignments()
+            ->where('official_id', $officialId)
+            ->exists();
+    }
+
+    private function validateChairpersonRole(?string $officialId): void
+    {
+        if (! $officialId) {
+            return;
+        }
+
+        $isChairpersonCandidate = Official::query()
+            ->whereKey($officialId)
+            ->where('is_active', true)
+            ->whereHas('role', fn ($query) => $query->whereIn('role_name', [
+                'Kagawad',
+                'SK Chair',
+                'SK Chairperson',
+            ]))
+            ->exists();
+
+        if (! $isChairpersonCandidate) {
+            throw ValidationException::withMessages([
+                'chairperson_id' => 'The chairperson must be an active Kagawad or SK Chairperson.',
+            ]);
+        }
     }
 }
