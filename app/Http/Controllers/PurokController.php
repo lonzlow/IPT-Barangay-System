@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Purok;
 use App\Models\Resident;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class PurokController extends Controller
 {
@@ -46,7 +45,9 @@ class PurokController extends Controller
     {
         $this->authorize('households.manage');
 
-        return view('puroks.create');
+        $residents = $this->leaderOptions();
+
+        return view('puroks.create', compact('residents'));
     }
 
     /**
@@ -59,9 +60,16 @@ class PurokController extends Controller
         $validated = $request->validate([
             'purok_name' => 'required|string|unique:puroks,purok_name',
             'description' => 'nullable|string',
+            'leader_id' => ['nullable', 'uuid', 'exists:residents,id'],
         ]);
 
         Purok::create($validated);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Purok created successfully.',
+            ], 201);
+        }
 
         return redirect()->route('puroks.index')
             ->with('success', 'Purok created successfully.');
@@ -95,10 +103,7 @@ class PurokController extends Controller
     {
         $this->authorize('households.manage');
 
-        $residents = Resident::whereHas('household', fn ($query) => $query->where('purok_id', $purok->id))
-            ->orderBy('last_name')
-            ->orderBy('first_name')
-            ->get();
+        $residents = $this->leaderOptions();
         $householdCount = $purok->households()->count();
 
         return view('puroks.edit', compact('purok', 'residents', 'householdCount'));
@@ -114,17 +119,16 @@ class PurokController extends Controller
         $validated = $request->validate([
             'purok_name' => 'required|string|unique:puroks,purok_name,' . $purok->id,
             'description' => 'nullable|string',
-            'leader_id' => [
-                'nullable',
-                'uuid',
-                Rule::exists('residents', 'id')->where(fn ($query) => $query->whereIn(
-                    'household_id',
-                    $purok->households()->select('id')
-                )),
-            ],
+            'leader_id' => ['nullable', 'uuid', 'exists:residents,id'],
         ]);
 
         $purok->update($validated);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Purok updated successfully.',
+            ]);
+        }
 
         return redirect()->route('puroks.show', $purok)
             ->with('success', 'Purok updated successfully.');
@@ -139,13 +143,32 @@ class PurokController extends Controller
 
         // Check if purok has households
         if ($purok->households()->count() > 0) {
+            $message = 'Cannot delete purok with households. Please reassign households first.';
+
+            if (request()->expectsJson()) {
+                return response()->json(['message' => $message], 422);
+            }
+
             return redirect()->route('puroks.index')
-                ->with('error', 'Cannot delete purok with households. Please reassign households first.');
+                ->with('error', $message);
         }
 
         $purok->delete();
 
+        if (request()->expectsJson()) {
+            return response()->json(['message' => 'Purok deleted successfully.']);
+        }
+
         return redirect()->route('puroks.index')
             ->with('success', 'Purok deleted successfully.');
+    }
+
+    private function leaderOptions()
+    {
+        return Resident::query()
+            ->with('household.purok')
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
     }
 }

@@ -149,6 +149,7 @@
                     <div class="official-actions d-flex justify-content-center gap-2 mt-3">
                         <button class="btn" onclick="viewOfficial('{{ $official->id }}')"><i class="bi bi-eye me-1"></i>View</button>
                         <button class="btn" onclick="previewId('{{ $official->id }}')"><i class="bi bi-card-heading me-1"></i>ID</button>
+                        <a class="btn" href="{{ route('officials.digitalId', $official) }}" target="_blank" rel="noopener"><i class="bi bi-printer me-1"></i>Print</a>
                     </div>
                 </div>
             </div>

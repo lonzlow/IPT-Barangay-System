@@ -27,7 +27,7 @@ return new class extends Migration {
             $table->enum('civil_status', ['Single', 'Married', 'Widowed', 'Separated', 'Divorced']);
             $table->enum('voter_status', ['Registered', 'Unregistered', 'Suspended']);
             $table->enum('residency_status', ['Active', 'Deceased', 'Transferred']);
-            $table->foreignId('household_id')->constrained('households')->onDelete('cascade');
+            $table->foreignId('household_id')->constrained('households')->restrictOnDelete();
             $table->timestamps();
             $table->softDeletes();
         });

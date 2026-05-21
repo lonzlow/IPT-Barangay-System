@@ -13,6 +13,7 @@ use App\Http\Controllers\CommitteeController;
 use App\Http\Controllers\CommitteeRecordController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\BusinessController;
+use App\Http\Controllers\BackupController;
 use App\Http\Controllers\SignatureController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -35,6 +36,7 @@ Route::middleware('auth')->group(function () {
 
     // OFFICIALS ROUTE
     Route::post('/officials/assign-designation', [OfficialController::class, 'assignDesignation'])->name('officials.assignDesignation');
+    Route::get('/officials/{official}/digital-id', [OfficialController::class, 'digitalId'])->name('officials.digitalId');
     Route::resource('officials', OfficialController::class);
 
     // COMMITTEES ROUTE
@@ -50,12 +52,14 @@ Route::middleware('auth')->group(function () {
 
     // REPORTS ROUTE
     Route::middleware('can:reports.view')->group(function () {
+        Route::get('/reports/demographics', [ReportController::class, 'demographics'])->name('reports.demographics');
         Route::resource('reports', ReportController::class)->parameters(['reports' => 'record']);
     });
 
     // BUSINESS ROUTE
     Route::middleware('can:business.view')->group(function () {
         Route::get('/businesses/data', [BusinessController::class, 'data'])->name('businesses.data');
+        Route::get('/businesses/residents/search', [BusinessController::class, 'residentsSearch'])->name('businesses.residents.search');
         Route::get('/businesses/{business}/permits/history', [BusinessController::class, 'permitHistory'])->name('businesses.permits.history');
         Route::post('/businesses/{business}/permits', [BusinessController::class, 'issuePermit'])->name('businesses.permits.issue');
         Route::post('/businesses/{business}/permits/{permit}/renew', [BusinessController::class, 'renewPermit'])->name('businesses.permits.renew');
@@ -95,6 +99,8 @@ Route::middleware('auth')->group(function () {
 
     // USERS ROUTE (ADMIN ONLY)
     Route::middleware('can:users.view')->group(function () {
+        Route::post('/backups', [BackupController::class, 'store'])->name('backups.store');
+        Route::post('/backups/restore', [BackupController::class, 'restore'])->name('backups.restore');
         Route::get('/users/data', [UserController::class, 'getUsers'])->name('users.data');
         Route::resource('/users', UserController::class);
     });
@@ -103,13 +109,27 @@ Route::middleware('auth')->group(function () {
     Route::middleware('can:households.view')->group(function () {
         Route::get('/households/data', [HouseholdController::class, 'data'])->name('households.data');
         Route::get('/households/statistics', [HouseholdController::class, 'statistics'])->name('households.statistics');
-        Route::resource('/households', HouseholdController::class);
+        Route::resource('/households', HouseholdController::class)->only(['index', 'show']);
     });
+    Route::middleware('can:households.manage')->group(function () {
+        Route::resource('/households', HouseholdController::class)->only(['create', 'store', 'edit', 'update']);
+    });
+    Route::delete('/households/{household}', [HouseholdController::class, 'destroy'])
+        ->middleware('can:households.delete')
+        ->name('households.destroy');
 
     // PUROKS ROUTE
-    Route::middleware('can:households.view')->group(function () {
-        Route::resource('/puroks', PurokController::class);
+    // Register management routes first so static URIs like /puroks/create
+    // are not captured by the parameterized show route (/puroks/{purok}).
+    Route::middleware('can:households.manage')->group(function () {
+        Route::resource('/puroks', PurokController::class)->only(['create', 'store', 'edit', 'update']);
     });
+    Route::middleware('can:households.view')->group(function () {
+        Route::resource('/puroks', PurokController::class)->only(['index', 'show']);
+    });
+    Route::delete('/puroks/{purok}', [PurokController::class, 'destroy'])
+        ->middleware('can:households.delete')
+        ->name('puroks.destroy');
 
     // PROFILE ROUTES
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

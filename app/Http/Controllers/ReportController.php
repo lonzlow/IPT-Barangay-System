@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\AggregateDemographicReports;
 use App\Models\Committee;
 use App\Models\CommitteeRecord;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class ReportController extends Controller
 {
@@ -18,8 +20,16 @@ class ReportController extends Controller
         $records = CommitteeRecord::with('committee')->paginate(15);
         $committees = Committee::orderBy('name')->get();
         $recordTypes = CommitteeRecord::TYPES;
+        $analytics = $this->demographicAnalytics();
 
-        return view('reports.index', compact('records', 'committees', 'recordTypes'));
+        return view('reports.index', compact('records', 'committees', 'recordTypes', 'analytics'));
+    }
+
+    public function demographics()
+    {
+        $this->authorize('reports.view');
+
+        return response()->json($this->demographicAnalytics());
     }
 
     /**
@@ -152,5 +162,14 @@ class ReportController extends Controller
         }
 
         return redirect()->route('reports.index')->with('success', 'Report deleted successfully.');
+    }
+
+    private function demographicAnalytics(): array
+    {
+        if (! Cache::has(AggregateDemographicReports::CACHE_KEY)) {
+            AggregateDemographicReports::dispatchSync();
+        }
+
+        return Cache::get(AggregateDemographicReports::CACHE_KEY, AggregateDemographicReports::payload());
     }
 }

@@ -192,13 +192,18 @@
                 <div class="card-sub mb-4">Upload files for an existing blotter record</div>
                 <form id="evidenceForm">
                     <label class="form-label fw-700">Blotter Reference No.</label>
-                    <input type="text" class="form-control mb-3" name="reference" placeholder="e.g. BL-000001" required>
-                    <input type="file" class="d-none" id="evidenceFile" name="evidence" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.mp4,.mov,.avi,.webm" required>
+                    <select class="form-select mb-3" name="reference" id="evidenceReference" required>
+                        <option value="">Select blotter reference</option>
+                        @foreach($blotterReferences as $reference)
+                            <option value="{{ $reference['case_number'] }}">{{ $reference['label'] }}</option>
+                        @endforeach
+                    </select>
+                    <input type="file" class="d-none" id="evidenceFile" name="evidence" accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.mp4,.mov,.avi,.webm,.mkv,.mpeg,.mpg,image/jpeg,image/png,image/webp,image/gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,video/mp4,video/quicktime,video/x-msvideo,video/webm,video/x-matroska,video/mpeg" required>
                     <div class="upload-zone mb-3" id="uploadZone">
                         <div>
                             <i class="bi bi-cloud-arrow-up-fill d-block mb-3" style="font-size:24px;"></i>
                             <div class="fw-700" id="uploadLabel">Drop files here or click to browse</div>
-                            <div style="font-size:12px;">PDF, DOC, images, videos - max 50MB</div>
+                            <div style="font-size:12px;">PDF, DOC, images, videos - max 100MB</div>
                         </div>
                     </div>
                     <button type="submit" class="btn btn-outline-primary w-100 fw-700">
@@ -386,7 +391,8 @@
                                 <i class="bi bi-paperclip text-primary"></i>
                                 <h6 class="fw-800 mb-0">Evidence Uploads</h6>
                             </div>
-                            <input type="file" class="form-control" name="evidences[]" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.mp4,.mov,.avi,.webm" multiple>
+                            <input type="file" class="form-control" name="evidences[]" accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.mp4,.mov,.avi,.webm,.mkv,.mpeg,.mpg,image/jpeg,image/png,image/webp,image/gif,application/pdf,video/mp4,video/quicktime,video/x-msvideo,video/webm,video/x-matroska,video/mpeg" multiple>
+                            <div class="form-text">Up to 5 files. Allowed: images, PDF, and common video formats. Maximum 100 MB per file.</div>
                             <div class="form-text">Optional. Attach images, videos, PDFs, or documents up to 50MB each.</div>
                             <div class="invalid-feedback"></div>
                         </div>
@@ -439,6 +445,7 @@
 const blotterModal = new bootstrap.Modal(document.getElementById("blotterModal"));
 const blotterForm = document.getElementById("blotterForm");
 const evidenceForm = document.getElementById("evidenceForm");
+const evidenceReference = document.getElementById("evidenceReference");
 const uploadZone = document.getElementById("uploadZone");
 const evidenceFile = document.getElementById("evidenceFile");
 const uploadLabel = document.getElementById("uploadLabel");
@@ -450,6 +457,7 @@ let typeChart = null;
 
 const statusData = @json($statusDistribution);
 const typeData = @json($typeBreakdown);
+let blotterReferences = @json($blotterReferences);
 
 if (axiosInstance) {
     axiosInstance.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest";
@@ -499,6 +507,59 @@ function updateSummary(summary) {
             el.textContent = key === "resolved_rate" ? `${value}%` : value;
         });
     });
+}
+
+function requestJson(url, options = {}) {
+    if (axiosInstance) {
+        const method = options.method || "get";
+        return axiosInstance({
+            method,
+            url,
+            data: options.data,
+            headers: options.headers || {},
+        }).then((response) => response.data);
+    }
+
+    const headers = {
+        "Accept": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        ...(options.headers || {}),
+    };
+    const csrfToken = document.querySelector("meta[name=\"csrf-token\"]")?.getAttribute("content");
+    if (csrfToken) headers["X-CSRF-TOKEN"] = csrfToken;
+
+    return fetch(url, {
+        method: options.method || "GET",
+        body: options.data,
+        headers,
+    }).then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const error = new Error(payload.message || "Request failed.");
+            error.response = { status: response.status, data: payload };
+            throw error;
+        }
+        return payload;
+    });
+}
+
+function updateEvidenceReferences(references) {
+    if (!Array.isArray(references)) return;
+    const currentValue = evidenceReference.value;
+    blotterReferences = references;
+    evidenceReference.innerHTML = '<option value="">Select blotter reference</option>';
+    references.forEach((reference) => {
+        const option = new Option(reference.label, reference.case_number);
+        evidenceReference.appendChild(option);
+    });
+    if (references.some((reference) => reference.case_number === currentValue)) {
+        evidenceReference.value = currentValue;
+    }
+}
+
+function updateDashboard(payload) {
+    updateSummary(payload?.summary);
+    updateEvidenceReferences(payload?.blotterReferences);
 }
 
 function resetParties() {
@@ -680,11 +741,11 @@ window.openCreateModal = () => {
     blotterModal.show();
 };
 
-async function editBlotter(id) {
+async function editBlotter(id, url = null) {
     clearValidation();
     try {
-        const response = await axiosInstance.get(`/blotters/${id}/edit`);
-        const data = response.data?.data || {};
+        const response = await requestJson(url || `/blotters/${id}/edit`);
+        const data = response?.data || {};
         resetParties();
         document.getElementById("blotterId").value = data.id || id;
         document.getElementById("caseNumberDisplay").value = data.case_number || "";
@@ -708,12 +769,12 @@ async function editBlotter(id) {
     }
 }
 
-async function deleteBlotter(id) {
+async function deleteBlotter(id, url = null) {
     if (!confirm("Are you sure you want to delete this blotter record?")) return;
     try {
-        const response = await axiosInstance.delete(`/blotters/${id}`);
-        showAlert(response.data?.message || "Blotter record deleted successfully.");
-        updateSummary(response.data?.dashboard?.summary);
+        const response = await requestJson(url || `/blotters/${id}`, { method: "delete" });
+        showAlert(response?.message || "Blotter record deleted successfully.");
+        updateDashboard(response?.dashboard);
         blottersTable?.ajax.reload(null, false);
     } catch (error) {
         showAlert(error.response?.data?.message || "Failed to delete blotter record.", "danger");
@@ -735,14 +796,9 @@ blotterForm.addEventListener("submit", async (event) => {
     if (id) data.append("_method", "PUT");
 
     try {
-        if (!axiosInstance) {
-            blotterForm.submit();
-            return;
-        }
-
-        const response = await axiosInstance({ method, url, data, headers: { "Content-Type": "multipart/form-data" } });
-        showAlert(response.data?.message || "Blotter record saved successfully.");
-        updateSummary(response.data?.dashboard?.summary);
+        const response = await requestJson(url, { method, data });
+        showAlert(response?.message || "Blotter record saved successfully.");
+        updateDashboard(response?.dashboard);
         blotterModal.hide();
         blotterForm.reset();
         blottersTable?.ajax.reload(null, false);
@@ -782,23 +838,28 @@ evidenceForm.addEventListener("submit", async (event) => {
     const reference = evidenceForm.querySelector("[name=\"reference\"]").value.trim();
     const file = evidenceFile.files[0];
     if (!reference || !file) {
-        showAlert("Enter a blotter reference number and choose a file.", "danger");
+        showAlert("Select a blotter reference number and choose a file.", "danger");
         return;
     }
 
     const formData = new FormData();
     formData.append("evidence", file);
     formData.append("caption", file.name);
+    const submitButton = evidenceForm.querySelector("button[type=\"submit\"]");
+    submitButton.disabled = true;
 
     try {
-        const response = await axiosInstance.post(`/blotters/${encodeURIComponent(reference)}/evidence`, formData, {
-            headers: { "Content-Type": "multipart/form-data" },
+        const response = await requestJson(`/blotters/${encodeURIComponent(reference)}/evidence`, {
+            method: "post",
+            data: formData,
         });
-        showAlert(response.data?.message || "Supporting document attached successfully.");
+        showAlert(response?.message || "Supporting document attached successfully.");
         evidenceForm.reset();
         uploadLabel.textContent = "Drop files here or click to browse";
     } catch (error) {
         showAlert(error.response?.data?.message || "Failed to attach supporting document.", "danger");
+    } finally {
+        submitButton.disabled = false;
     }
 });
 
@@ -907,7 +968,7 @@ document.addEventListener("DOMContentLoaded", () => {
             columns: [
                 { data: "case_number", name: "case_number" },
                 { data: "complainant_display", name: "complainant_display", orderable: false },
-                { data: "incident_type", name: "incident_description", orderable: false },
+                { data: "incident_type", name: "incident_title" },
                 { data: "date_filed", name: "incident_date" },
                 { data: "severity_badge", name: "severity", orderable: false, searchable: false },
                 { data: "status_badge", name: "status", orderable: false },
@@ -929,8 +990,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("click", (event) => {
         const button = event.target.closest("[data-blotter-action]");
         if (!button) return;
-        if (button.dataset.blotterAction === "edit") editBlotter(button.dataset.blotterId);
-        if (button.dataset.blotterAction === "delete") deleteBlotter(button.dataset.blotterId);
+        if (button.dataset.blotterAction === "edit") {
+            editBlotter(button.dataset.blotterId, button.dataset.blotterEditUrl);
+        }
+        if (button.dataset.blotterAction === "delete") {
+            deleteBlotter(button.dataset.blotterId, button.dataset.blotterDeleteUrl);
+        }
     });
 });
 </script>

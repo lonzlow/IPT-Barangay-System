@@ -42,6 +42,11 @@
                             </option>
                         @endforeach
                     </select>
+                    @if($officials->isEmpty())
+                        <div class="form-text text-muted">
+                            All active officials already have user accounts. Add a new official profile first, or edit an existing user account instead.
+                        </div>
+                    @endif
                 </div>
 
                 <div class="col-md-6">
@@ -70,7 +75,7 @@
             </div>
 
             <div class="mt-3 d-flex gap-2">
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary" @disabled($officials->isEmpty())>
                     <i class="bi bi-person-plus-fill"></i> Create User
                 </button>
                 <a href="{{ route('users.index') }}" class="btn btn-light">Cancel</a>

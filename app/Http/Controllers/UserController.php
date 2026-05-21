@@ -6,8 +6,10 @@ use App\Models\ActivityLog;
 use App\Models\Official;
 use App\Models\Role;
 use App\Models\User;
+use App\Http\Controllers\BackupController;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -24,8 +26,9 @@ class UserController extends Controller
             Carbon::today()->startOfDay(),
             Carbon::today()->endOfDay(),
         ])->count();
+        $latest_backup = BackupController::latestBackup();
 
-        return view('users.index', compact('total_users', 'active_users', 'total_admins', 'total_actions_today'));
+        return view('users.index', compact('total_users', 'active_users', 'total_admins', 'total_actions_today', 'latest_backup'));
     }
 
     public function create()
@@ -34,8 +37,8 @@ class UserController extends Controller
 
         $roles = Role::orderBy('role_name')->get();
         $officials = Official::with(['resident', 'role'])
-            ->whereDoesntHave('user')
             ->where('is_active', true)
+            ->whereDoesntHave('user')
             ->orderBy('official_number')
             ->get();
 
@@ -47,22 +50,30 @@ class UserController extends Controller
         $this->authorize('users.view');
 
         $validated = $request->validate([
-            'official_id' => ['required', 'exists:officials,id', 'unique:users,official_id'],
+            'official_id' => [
+                'required',
+                Rule::exists('officials', 'id')
+                    ->where('is_active', true)
+                    ->whereNull('deleted_at'),
+                Rule::unique('users', 'official_id'),
+            ],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'role_id' => ['nullable', 'exists:roles,id'],
         ]);
 
-        if (! empty($validated['role_id'])) {
-            Official::whereKey($validated['official_id'])->update(['role_id' => $validated['role_id']]);
-        }
+        DB::transaction(function () use ($validated) {
+            if (! empty($validated['role_id'])) {
+                Official::whereKey($validated['official_id'])->update(['role_id' => $validated['role_id']]);
+            }
 
-        User::create([
-            'official_id' => $validated['official_id'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
-            'status' => 'Active',
-        ]);
+            User::create([
+                'official_id' => $validated['official_id'],
+                'email' => $validated['email'],
+                'password' => $validated['password'],
+                'status' => 'Active',
+            ]);
+        });
 
         return redirect()
             ->route('users.index')

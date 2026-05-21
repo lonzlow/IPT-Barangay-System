@@ -58,6 +58,11 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
+            'dump' => [
+                'dump_binary_path' => env('MYSQL_DUMP_BINARY_PATH', 'C:/laragon/bin/mysql/mysql-8.4.3-winx64/bin'),
+                'use_single_transaction' => true,
+                'skip_ssl' => true,
+            ],
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 (PHP_VERSION_ID >= 80500 ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA) => env('MYSQL_ATTR_SSL_CA'),
             ]) : [],
