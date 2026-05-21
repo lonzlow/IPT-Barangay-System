@@ -677,6 +677,7 @@ Route: GET /residents → route('residents.index')
             @if (session('success'))
                 // Mag-create ng toast element via JavaScript
                 let toast = $(`<div class="toast align-items-center text-white bg-success border-0 position-fixed top-0 end-0 m-3" style="z-index: 1055;" role="alert">
+<<<<<<< Updated upstream
                                                                                                         <div class="d-flex">
                                                                                                             <div class="toast-body"><i class="bi bi-check-circle me-2"></i> {{ session('success') }}</div>
                                                                                                         </div>
@@ -686,6 +687,17 @@ Route: GET /residents → route('residents.index')
                 toast.fadeIn().delay(3000).fadeOut(function () { $(this).remove(); });
             @endif
                                     });
+=======
+                                                                                                                                                                                                                                                                                                                                                <div class="d-flex">
+                                                                                                                                                                                                                                                                                                                                                    <div class="toast-body"><i class="bi bi-check-circle me-2"></i> {{ session('success') }}</div>
+                                                                                                                                                                                                                                                                                                                                                </div>
+                                                                                                                                                                                                                                                                                                                                            </div>
+                                                                                                                                                                                                                                                                                                                                        `);
+                $('body').append(toast);
+                toast.fadeIn().delay(3000).fadeOut(function () { $(this).remove(); });
+            @endif
+                                                                                                                                                        });
+>>>>>>> Stashed changes
     </script>
     <div class="modal fade" id="editResidentModal" tabindex="-1" aria-labelledby="editResidentModalLabel"
         aria-hidden="true">
