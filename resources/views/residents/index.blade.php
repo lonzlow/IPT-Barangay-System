@@ -232,8 +232,7 @@ Route: GET /residents → route('residents.index')
                 <div class="col-md-2">
                     <label
                         style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:4px;">Gender</label>
-                    <select id="gender-filter" class="form-select form-select-sm" style="font-size:12px;border-radius:6px;"
-                        onchange="filterTable()">
+                    <select id="gender-filter" class="form-select form-select-sm" style="font-size:12px;border-radius:6px;">
                         <option value="">All</option>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
@@ -244,7 +243,7 @@ Route: GET /residents → route('residents.index')
                     <label
                         style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:4px;">Residency</label>
                     <select id="residency-filter" class="form-select form-select-sm"
-                        style="font-size:12px;border-radius:6px;" onchange="filterTable()">
+                        style="font-size:12px;border-radius:6px;">
                         <option value="">All</option>
                         <option value="Active">Active</option>
                         <option value="Deceased">Deceased</option>
@@ -255,8 +254,7 @@ Route: GET /residents → route('residents.index')
                 <div class="col-md-2">
                     <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:4px;">Voter
                         Status</label>
-                    <select id="voter-filter" class="form-select form-select-sm" style="font-size:12px;border-radius:6px;"
-                        onchange="filterTable()">
+                    <select id="voter-filter" class="form-select form-select-sm" style="font-size:12px;border-radius:6px;">
                         <option value="">All</option>
                         <option value="Registered">Registered</option>
                         <option value="Unregistered">Unregistered</option>
@@ -268,7 +266,7 @@ Route: GET /residents → route('residents.index')
                     <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:4px;">Civil
                         Status</label>
                     <select id="civil-status-filter" class="form-select form-select-sm"
-                        style="font-size:12px;border-radius:6px;" onchange="filterTable()">
+                        style="font-size:12px;border-radius:6px;">
                         <option value="">All</option>
                         <option value="Single">Single</option>
                         <option value="Married">Married</option>
@@ -285,13 +283,13 @@ Route: GET /residents → route('residents.index')
                     <div class="d-flex gap-2 align-items-center">
                         <input type="number" id="age-from" class="form-control form-control-sm" placeholder="From"
                             style="font-size:13px; height: 42px !important; border-radius:6px; box-shadow: none;" min="0"
-                            max="120" onchange="filterTable()">
+                            max="120">
 
                         <span style="color:#94a3b8; font-weight: bold;">−</span>
 
                         <input type="number" id="age-to" class="form-control form-control-sm" placeholder="To"
                             style="font-size:13px; height: 42px !important; border-radius:6px; box-shadow: none;" min="0"
-                            max="120" onchange="filterTable()">
+                            max="120">
 
                         <button
                             class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center"
@@ -338,8 +336,9 @@ Route: GET /residents → route('residents.index')
                         <th>Contact No.</th>
                         <th>Gender</th>
                         <th>Address / Purok</th>
+                        <th>Residency Status</th>
                         <th>Voter</th>
-                        <th>Status</th>
+                        <th>Civil Status</th>
                         <th style="width: 100px; text-align: center;">Actions</th>
                     </tr>
                 </thead>
@@ -509,6 +508,7 @@ Route: GET /residents → route('residents.index')
                     { data: 'contact_number', name: 'contact_number' },
                     { data: 'gender', name: 'gender' },
                     { data: 'household_purok', name: 'household_purok' },
+                    { data: 'residency_status', name: 'residency_status' },
                     { data: 'voter', name: 'voter' },
                     { data: 'civil_status', name: 'civil_status' },
                     { data: 'action', name: 'action', orderable: false, searchable: false }
@@ -565,7 +565,16 @@ Route: GET /residents → route('residents.index')
                         }
                     });
                 }
+
             });
+            // Listen to the actual filter element IDs (residency, civil-status, age inputs)
+            $('#residency-filter, #gender-filter, #voter-filter, #civil-status-filter, #age-from, #age-to').on('change input', function () {
+                table.ajax.reload();
+            });
+
+
+
+
             $(document).off('click', '#custom-pagination .page-link').on('click', '#custom-pagination .page-link', function (e) {
                 e.preventDefault(); // Ito ang nagpapatigil sa pag-jump
 
@@ -640,6 +649,19 @@ Route: GET /residents → route('residents.index')
             }
         });
 
+        // 3. Fix para sa "clearFilters"
+        function clearFilters() {
+            // I-reset lahat ng select inputs sa empty value
+            $('#gender-filter, #residency-filter, #voter-filter, #civil-status-filter').val('');
+
+            // I-reset ang age inputs
+            $('#age-from, #age-to').val('');
+
+            // IMPORTANT: I-reload ang table para ipakita ang lahat ng records
+            // Ginagamit natin ang $('#residents-table').DataTable() para makuha ang instance
+            $('#residents-table').DataTable().ajax.reload();
+        }
+
         // Function para i-update ang lahat
         function refreshDashboard() {
             $.get("{{ route('residents.stats.refresh') }}", function (data) {
@@ -664,40 +686,29 @@ Route: GET /residents → route('residents.index')
                     ageChart.update();
                 }
                 if (typeof voterChart !== 'undefined') {
-                    voterChart.data.datasets[0].data = data.voterData;
+                    voterChart.data.datasets[0].data = [data.registeredVoters, data.unregisteredVoters];
                     voterChart.update();
                 }
 
                 // 3. Update Table Header Counter
                 $('.table-header .heading .badge').text(data.totalResidents);
             });
+
         }
 
         $(document).ready(function () {
             @if (session('success'))
                 // Mag-create ng toast element via JavaScript
                 let toast = $(`<div class="toast align-items-center text-white bg-success border-0 position-fixed top-0 end-0 m-3" style="z-index: 1055;" role="alert">
-<<<<<<< Updated upstream
-                                                                                                        <div class="d-flex">
-                                                                                                            <div class="toast-body"><i class="bi bi-check-circle me-2"></i> {{ session('success') }}</div>
-                                                                                                        </div>
-                                                                                                    </div>
-                                                                                                `);
+                                                                                                                                                                                                                                                                                                                                                        <div class="d-flex">
+                                                                                                                                                                                                                                                                                                                                                            <div class="toast-body"><i class="bi bi-check-circle me-2"></i> {{ session('success') }}</div>
+                                                                                                                                                                                                                                                                                                                                                        </div>
+                                                                                                                                                                                                                                                                                                                                                    </div>
+                                                                                                                                                                                                                                                                                                                                                `);
                 $('body').append(toast);
                 toast.fadeIn().delay(3000).fadeOut(function () { $(this).remove(); });
             @endif
-                                    });
-=======
-                                                                                                                                                                                                                                                                                                                                                <div class="d-flex">
-                                                                                                                                                                                                                                                                                                                                                    <div class="toast-body"><i class="bi bi-check-circle me-2"></i> {{ session('success') }}</div>
-                                                                                                                                                                                                                                                                                                                                                </div>
-                                                                                                                                                                                                                                                                                                                                            </div>
-                                                                                                                                                                                                                                                                                                                                        `);
-                $('body').append(toast);
-                toast.fadeIn().delay(3000).fadeOut(function () { $(this).remove(); });
-            @endif
-                                                                                                                                                        });
->>>>>>> Stashed changes
+                                                                                                                                                            });
     </script>
     <div class="modal fade" id="editResidentModal" tabindex="-1" aria-labelledby="editResidentModalLabel"
         aria-hidden="true">
