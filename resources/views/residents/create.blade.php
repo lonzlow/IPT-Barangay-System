@@ -82,7 +82,8 @@
                         <select name="voter_status" class="form-select" required>
                             @foreach(['Registered', 'Unregistered', 'Suspended'] as $option)
                                 <option value="{{ $option }}" @selected(old('voter_status', 'Unregistered') === $option)>
-                                    {{ $option }}</option>
+                                    {{ $option }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
@@ -91,7 +92,8 @@
                         <select name="residency_status" class="form-select" required>
                             @foreach(['Active', 'Deceased', 'Transferred'] as $option)
                                 <option value="{{ $option }}" @selected(old('residency_status', 'Active') === $option)>
-                                    {{ $option }}</option>
+                                    {{ $option }}
+                                </option>
                             @endforeach
                         </select>
                     </div>
@@ -121,4 +123,47 @@
             </form>
         </div>
     </div>
+
+@endsection
+@section('scripts')
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const birthdateInput = document.querySelector('input[name="birthdate"]');
+            const voterSelect = document.querySelector('select[name="voter_status"]'); // Ito yung dati mong rule
+            const civilSelect = document.querySelector('select[name="civil_status"]'); // Ito yung bago nating rule
+
+            function updateFieldsUI() {
+                if (!birthdateInput.value) return;
+
+                let birthdate = new Date(birthdateInput.value);
+                let today = new Date();
+                let age = today.getFullYear() - birthdate.getFullYear();
+                if (today.getMonth() < birthdate.getMonth() || (today.getMonth() === birthdate.getMonth() && today.getDate() < birthdate.getDate())) {
+                    age--;
+                }
+
+                // Civil Status Logic
+                const civilSelect = document.querySelector('select[name="civil_status"]');
+                const restrictedCivil = ['Married', 'Widowed', 'Separated', 'Divorced'];
+                Array.from(civilSelect.options).forEach(option => {
+                    option.disabled = (age <= 17 && restrictedCivil.includes(option.value));
+                });
+                if (age <= 17 && restrictedCivil.includes(civilSelect.value)) civilSelect.value = 'Single';
+
+                // Voter Status Logic
+                const voterSelect = document.querySelector('select[name="voter_status"]');
+                const restrictedVoter = ['Registered', 'Suspended'];
+                Array.from(voterSelect.options).forEach(option => {
+                    option.disabled = (age <= 15 && restrictedVoter.includes(option.value));
+                });
+                if (age <= 15 && restrictedVoter.includes(voterSelect.value)) voterSelect.value = 'Unregistered';
+            }
+
+            birthdateInput.addEventListener('change', updateFieldsUI);
+            civilSelect.addEventListener('change', updateFieldsUI);
+
+            // Run on load
+            updateFieldsUI();
+        });
+    </script>
 @endsection

@@ -130,8 +130,11 @@ Route: GET /residents → route('residents.index')
         </div>
     </div>
 
-    @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
+    @if (session('success'))
+        <div id="flash-message" class="alert alert-success d-flex align-items-center shadow-sm border-0 mb-3" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i>
+            <div>{{ session('success') }}</div>
+        </div>
     @endif
 
     {{-- ── STAT WIDGETS ── --}}
@@ -141,7 +144,7 @@ Route: GET /residents → route('residents.index')
             <div class="stat-card d-flex align-items-center gap-3 h-100">
                 <div class="stat-icon si-blue"><i class="bi bi-people-fill"></i></div>
                 <div>
-                    <div class="stat-value">{{ number_format($totalResidents) }}</div>
+                    <div class="stat-value" id="stat-total">{{ number_format($totalResidents) }}</div>
                     <div class="stat-label">Total Residents</div>
                 </div>
             </div>
@@ -151,7 +154,7 @@ Route: GET /residents → route('residents.index')
             <div class="stat-card d-flex align-items-center gap-3 h-100">
                 <div class="stat-icon si-green"><i class="bi bi-person-check-fill"></i></div>
                 <div>
-                    <div class="stat-value">{{ number_format($activeCount) }}</div>
+                    <div class="stat-value" id="stat-active">{{ number_format($activeCount) }}</div>
                     <div class="stat-label">Active Residents</div>
                     <span class="stat-badge badge-active">{{ $activePercentage }}%</span>
                 </div>
@@ -162,7 +165,7 @@ Route: GET /residents → route('residents.index')
             <div class="stat-card d-flex align-items-center gap-3 h-100">
                 <div class="stat-icon si-red"><i class="bi bi-person-dash-fill"></i></div>
                 <div>
-                    <div class="stat-value">{{ number_format($deceasedCount) }}</div>
+                    <div class="stat-value" id="stat-deceased">{{ number_format($deceasedCount) }}</div>
                     <div class="stat-label">Deceased</div>
                     <span class="stat-badge badge-deceased">{{ $deceasedPercentage }}%</span>
                 </div>
@@ -173,7 +176,7 @@ Route: GET /residents → route('residents.index')
             <div class="stat-card d-flex align-items-center gap-3 h-100">
                 <div class="stat-icon si-amber"><i class="bi bi-person-walking"></i></div>
                 <div>
-                    <div class="stat-value">{{ number_format($transferredCount) }}</div>
+                    <div class="stat-value" id="stat-transferred">{{ number_format($transferredCount) }}</div>
                     <div class="stat-label">Transferred</div>
                     <span class="stat-badge badge-transfer">{{ $transferredPercentage }}%</span>
                 </div>
@@ -229,8 +232,7 @@ Route: GET /residents → route('residents.index')
                 <div class="col-md-2">
                     <label
                         style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:4px;">Gender</label>
-                    <select id="gender-filter" class="form-select form-select-sm" style="font-size:12px;border-radius:6px;"
-                        onchange="filterTable()">
+                    <select id="gender-filter" class="form-select form-select-sm" style="font-size:12px;border-radius:6px;">
                         <option value="">All</option>
                         <option value="Male">Male</option>
                         <option value="Female">Female</option>
@@ -241,7 +243,7 @@ Route: GET /residents → route('residents.index')
                     <label
                         style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:4px;">Residency</label>
                     <select id="residency-filter" class="form-select form-select-sm"
-                        style="font-size:12px;border-radius:6px;" onchange="filterTable()">
+                        style="font-size:12px;border-radius:6px;">
                         <option value="">All</option>
                         <option value="Active">Active</option>
                         <option value="Deceased">Deceased</option>
@@ -252,8 +254,7 @@ Route: GET /residents → route('residents.index')
                 <div class="col-md-2">
                     <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:4px;">Voter
                         Status</label>
-                    <select id="voter-filter" class="form-select form-select-sm" style="font-size:12px;border-radius:6px;"
-                        onchange="filterTable()">
+                    <select id="voter-filter" class="form-select form-select-sm" style="font-size:12px;border-radius:6px;">
                         <option value="">All</option>
                         <option value="Registered">Registered</option>
                         <option value="Unregistered">Unregistered</option>
@@ -265,7 +266,7 @@ Route: GET /residents → route('residents.index')
                     <label style="font-size:11px;color:#94a3b8;font-weight:600;display:block;margin-bottom:4px;">Civil
                         Status</label>
                     <select id="civil-status-filter" class="form-select form-select-sm"
-                        style="font-size:12px;border-radius:6px;" onchange="filterTable()">
+                        style="font-size:12px;border-radius:6px;">
                         <option value="">All</option>
                         <option value="Single">Single</option>
                         <option value="Married">Married</option>
@@ -282,13 +283,13 @@ Route: GET /residents → route('residents.index')
                     <div class="d-flex gap-2 align-items-center">
                         <input type="number" id="age-from" class="form-control form-control-sm" placeholder="From"
                             style="font-size:13px; height: 42px !important; border-radius:6px; box-shadow: none;" min="0"
-                            max="120" onchange="filterTable()">
+                            max="120">
 
                         <span style="color:#94a3b8; font-weight: bold;">−</span>
 
                         <input type="number" id="age-to" class="form-control form-control-sm" placeholder="To"
                             style="font-size:13px; height: 42px !important; border-radius:6px; box-shadow: none;" min="0"
-                            max="120" onchange="filterTable()">
+                            max="120">
 
                         <button
                             class="btn btn-sm btn-outline-secondary d-inline-flex align-items-center justify-content-center"
@@ -335,8 +336,9 @@ Route: GET /residents → route('residents.index')
                         <th>Contact No.</th>
                         <th>Gender</th>
                         <th>Address / Purok</th>
+                        <th>Residency Status</th>
                         <th>Voter</th>
-                        <th>Status</th>
+                        <th>Civil Status</th>
                         <th style="width: 100px; text-align: center;">Actions</th>
                     </tr>
                 </thead>
@@ -407,32 +409,37 @@ Route: GET /residents → route('residents.index')
 
 @section('scripts')
     <script>
-        // 1. CHART INITIALIZATIONS (No document ready needed)
-        new Chart(document.getElementById('genderChart'), {
-            type: 'doughnut',
-            data: {
-                labels: ['Male', 'Female'],
-                datasets: [{ data: [{{ $maleCount }}, {{ $femaleCount }}], backgroundColor: ['#1a56db', '#f472b6'], borderWidth: 0, hoverOffset: 6 }]
-            },
-            options: { cutout: '68%', maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom', labels: { font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 }, boxWidth: 10, padding: 14 } } } }
-        });
 
-        new Chart(document.getElementById('ageChart'), {
-            type: 'bar',
-            data: {
-                labels: ['0–12', '13–17', '18–24', '25–34', '35–49', '50–64', '65+'],
-                datasets: [{ label: 'Residents', data: {!! json_encode($ageData) !!}, backgroundColor: '#1a56db', borderRadius: 6, borderSkipped: false }]
-            },
-            options: { maintainAspectRatio: false, scales: { x: { grid: { display: false } }, y: { grid: { color: '#f1f5f9' } } }, plugins: { legend: { display: false } } }
-        });
+        let genderChart, ageChart, voterChart;
 
-        new Chart(document.getElementById('voterChart'), {
-            type: 'doughnut',
-            data: {
-                labels: ['Registered', 'Not Registered'],
-                datasets: [{ data: [{{ $registeredVoters }}, {{ $unregisteredVoters }}], backgroundColor: ['#1a56db', '#e2e8f0'], borderWidth: 0, hoverOffset: 4 }]
-            },
-            options: { cutout: '72%', maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        $(document).ready(function () {
+            // 1. CHART INITIALIZATIONS (No document ready needed)
+            genderChart = new Chart(document.getElementById('genderChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Male', 'Female'],
+                    datasets: [{ data: [{{ $maleCount }}, {{ $femaleCount }}], backgroundColor: ['#1a56db', '#f472b6'], borderWidth: 0, hoverOffset: 6 }]
+                },
+                options: { cutout: '68%', maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom', labels: { font: { family: "'Plus Jakarta Sans', sans-serif", size: 12 }, boxWidth: 10, padding: 14 } } } }
+            });
+
+            ageChart = new Chart(document.getElementById('ageChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['0–12', '13–17', '18–24', '25–34', '35–49', '50–64', '65+'],
+                    datasets: [{ label: 'Residents', data: {!! json_encode($ageData) !!}, backgroundColor: '#1a56db', borderRadius: 6, borderSkipped: false }]
+                },
+                options: { maintainAspectRatio: false, scales: { x: { grid: { display: false } }, y: { grid: { color: '#f1f5f9' } } }, plugins: { legend: { display: false } } }
+            });
+
+            voterChart = new Chart(document.getElementById('voterChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Registered', 'Not Registered'],
+                    datasets: [{ data: [{{ $registeredVoters }}, {{ $unregisteredVoters }}], backgroundColor: ['#1a56db', '#e2e8f0'], borderWidth: 0, hoverOffset: 4 }]
+                },
+                options: { cutout: '72%', maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
         });
 
         // 2. GLOBAL FUNCTIONS (Para ma-access ng HTML onclick)
@@ -501,12 +508,90 @@ Route: GET /residents → route('residents.index')
                     { data: 'contact_number', name: 'contact_number' },
                     { data: 'gender', name: 'gender' },
                     { data: 'household_purok', name: 'household_purok' },
+                    { data: 'residency_status', name: 'residency_status' },
                     { data: 'voter', name: 'voter' },
                     { data: 'civil_status', name: 'civil_status' },
                     { data: 'action', name: 'action', orderable: false, searchable: false }
                 ],
                 drawCallback: function (settings) {
-                    // ... (Pagination logic mo dito, hindi ko na binago)
+                    var api = this.api();
+                    var pageInfo = api.page.info();
+
+                    // 1. UPDATE LIVE COUNTER
+                    if (pageInfo.recordsTotal > 0) {
+                        var startEntry = pageInfo.start + 1;
+                        var endEntry = pageInfo.end;
+                        var totalEntries = pageInfo.recordsDisplay;
+                        $('#table-info').text('Showing ' + startEntry + ' to ' + endEntry + ' of ' + totalEntries + ' entries');
+                    } else {
+                        $('#table-info').text('Showing 0 entries');
+                    }
+
+                    // 2. DYNAMICALLY BUILD CUSTOM DESIGN PAGINATION UI
+                    var navContainer = $('#custom-pagination');
+                    navContainer.empty();
+
+                    if (pageInfo.pages <= 1) return;
+
+                    var ul = $('<ul class="pagination pagination-sm mb-0 d-flex align-items-center" style="gap: 4px;"></ul>');
+
+                    // --- BUTTON: PREVIOUS ---
+                    var prevClass = (pageInfo.page === 0) ? 'disabled' : '';
+                    ul.append($('<li class="page-item ' + prevClass + '"><a class="page-link px-2 py-1 text-secondary border" href="javascript:void(0)" data-page="prev" style="border-radius: 6px; font-size: 11.5px; font-weight: 500; background: #fff; box-shadow: none;">Previous</a></li>'));
+
+                    // --- BUTTONS: PAGE NUMBERS ---
+                    var startPage = Math.max(0, pageInfo.page - 2);
+                    var endPage = Math.min(pageInfo.pages - 1, startPage + 4);
+                    if (endPage - startPage < 4) startPage = Math.max(0, endPage - 4);
+
+                    for (var i = startPage; i <= endPage; i++) {
+                        var activeClass = (pageInfo.page === i) ? 'active' : '';
+                        var activeStyle = (pageInfo.page === i)
+                            ? 'background-color: #1a56db; border-color: #1a56db; color: #fff; font-weight: 600;'
+                            : 'background: #fff; color: #475569;';
+                        ul.append($('<li class="page-item ' + activeClass + '"><a class="page-link d-inline-flex align-items-center justify-content-center border" href="javascript:void(0)" data-page="' + i + '" style="border-radius: 6px; width: 28px; height: 28px; font-size: 11.5px; box-shadow: none; ' + activeStyle + '">' + (i + 1) + '</a></li>'));
+                    }
+
+                    // --- BUTTON: NEXT ---
+                    var nextClass = (pageInfo.page === pageInfo.pages - 1) ? 'disabled' : '';
+                    ul.append($('<li class="page-item ' + nextClass + '"><a class="page-link px-2 py-1 text-secondary border" href="javascript:void(0)" data-page="next" style="border-radius: 6px; font-size: 11.5px; font-weight: 500; background: #fff; box-shadow: none;">Next</a></li>'));
+
+                    navContainer.append(ul);
+
+                    // Row status check
+                    $('#residents-table tbody tr').each(function () {
+                        if ($(this).text().includes('Deleted')) {
+                            $(this).addClass('row-deleted');
+                        }
+                    });
+                }
+
+            });
+            // Listen to the actual filter element IDs (residency, civil-status, age inputs)
+            $('#residency-filter, #gender-filter, #voter-filter, #civil-status-filter, #age-from, #age-to').on('change input', function () {
+                table.ajax.reload();
+            });
+
+
+
+
+            $(document).off('click', '#custom-pagination .page-link').on('click', '#custom-pagination .page-link', function (e) {
+                e.preventDefault(); // Ito ang nagpapatigil sa pag-jump
+
+                var parentItem = $(this).parent();
+                if (parentItem.hasClass('disabled') || parentItem.hasClass('active')) {
+                    return;
+                }
+
+                var targetPage = $(this).data('page');
+                var table = $('#residents-table').DataTable();
+
+                if (targetPage === 'prev') {
+                    table.page('previous').draw('page');
+                } else if (targetPage === 'next') {
+                    table.page('next').draw('page');
+                } else {
+                    table.page(parseInt(targetPage)).draw('page');
                 }
             });
 
@@ -519,6 +604,7 @@ Route: GET /residents → route('residents.index')
                     success: function () {
                         $('#deleteConfirmModal').modal('hide');
                         table.ajax.reload(null, false);
+                        refreshDashboard();
                         showToast('Resident deleted successfully!');
                     }
                 });
@@ -533,6 +619,7 @@ Route: GET /residents → route('residents.index')
                     success: function () {
                         $('#restoreConfirmModal').modal('hide');
                         table.ajax.reload(null, false);
+                        refreshDashboard();
                         showToast('Resident restored successfully!');
                     }
                 });
@@ -549,6 +636,7 @@ Route: GET /residents → route('residents.index')
                     success: function () {
                         $('#editResidentModal').modal('hide');
                         table.ajax.reload(null, false);
+                        refreshDashboard();
                         showToast('Resident updated successfully!');
                     }
                 });
@@ -560,6 +648,67 @@ Route: GET /residents → route('residents.index')
                 new bootstrap.Toast(toastEl).show();
             }
         });
+
+        // 3. Fix para sa "clearFilters"
+        function clearFilters() {
+            // I-reset lahat ng select inputs sa empty value
+            $('#gender-filter, #residency-filter, #voter-filter, #civil-status-filter').val('');
+
+            // I-reset ang age inputs
+            $('#age-from, #age-to').val('');
+
+            // IMPORTANT: I-reload ang table para ipakita ang lahat ng records
+            // Ginagamit natin ang $('#residents-table').DataTable() para makuha ang instance
+            $('#residents-table').DataTable().ajax.reload();
+        }
+
+        // Function para i-update ang lahat
+        function refreshDashboard() {
+            $.get("{{ route('residents.stats.refresh') }}", function (data) {
+                // 1. Update Numbers
+                $('#stat-total').text(data.totalResidents);
+                $('#stat-active').text(data.activeCount);
+                $('#stat-deceased').text(data.deceasedCount);
+                $('#stat-transferred').text(data.transferredCount);
+
+                // Update Badges
+                $('.badge-active').text(data.activePercentage + '%');
+                $('.badge-deceased').text(data.deceasedPercentage + '%');
+                $('.badge-transfer').text(data.transferredPercentage + '%');
+
+                // 2. Update Charts (Assuming genderChart, ageChart, voterChart are global)
+                if (typeof genderChart !== 'undefined') {
+                    genderChart.data.datasets[0].data = data.genderData;
+                    genderChart.update();
+                }
+                if (typeof ageChart !== 'undefined') {
+                    ageChart.data.datasets[0].data = data.ageData;
+                    ageChart.update();
+                }
+                if (typeof voterChart !== 'undefined') {
+                    voterChart.data.datasets[0].data = [data.registeredVoters, data.unregisteredVoters];
+                    voterChart.update();
+                }
+
+                // 3. Update Table Header Counter
+                $('.table-header .heading .badge').text(data.totalResidents);
+            });
+
+        }
+
+        $(document).ready(function () {
+            @if (session('success'))
+                // Mag-create ng toast element via JavaScript
+                let toast = $(`<div class="toast align-items-center text-white bg-success border-0 position-fixed top-0 end-0 m-3" style="z-index: 1055;" role="alert">
+                                                                                                                                                                                                                                                                                                                                                                <div class="d-flex">
+                                                                                                                                                                                                                                                                                                                                                                    <div class="toast-body"><i class="bi bi-check-circle me-2"></i> {{ session('success') }}</div>
+                                                                                                                                                                                                                                                                                                                                                                </div>
+                                                                                                                                                                                                                                                                                                                                                            </div>
+                                                                                                                                                                                                                                                                                                                                                        `);
+                $('body').append(toast);
+                toast.fadeIn().delay(3000).fadeOut(function () { $(this).remove(); });
+            @endif
+                                                                                                                                                                });
     </script>
     <div class="modal fade" id="editResidentModal" tabindex="-1" aria-labelledby="editResidentModalLabel"
         aria-hidden="true">

@@ -90,28 +90,56 @@ class ResidentController extends Controller
      */
     public function store(Request $request)
     {
-        $this->authorize('residents.manage');
 
-        $validated = $request->validate([
-            'first_name' => ['required', 'string', 'max:255'],
-            'middle_name' => ['nullable', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'suffix' => ['nullable', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:residents,email'],
-            'contact_number' => ['required', 'string', 'max:255'],
-            'birthdate' => ['required', 'date'],
-            'gender' => ['required', Rule::in(['Male', 'Female'])],
-            'civil_status' => ['required', Rule::in(['Single', 'Married', 'Widowed', 'Separated', 'Divorced'])],
-            'voter_status' => ['required', Rule::in(['Registered', 'Unregistered', 'Suspended'])],
-            'residency_status' => ['required', Rule::in(['Active', 'Deceased', 'Transferred'])],
-            'household_id' => ['required', 'exists:households,id'],
+        $birthdate = \Carbon\Carbon::parse($request->birthdate);
+        $age = $birthdate->age;
+
+
+        // Validate inputs
+        $request->validate([
+            'first_name' => 'required',
+            'last_name' => 'required',
+            'email' => 'nullable|email|unique:residents,email', // Check duplicate email
+            'contact_number' => 'required|unique:residents,contact_number',
+            'birthdate' => 'required|date',
+            'gender' => 'required',
+            'civil_status' => 'required',
+            'voter_status' => [
+                'required',
+                function ($attribute, $value, $fail) use ($age) {
+                    // Kung 15 pababa, bawal ang 'Registered'
+                    if ($age <= 15 && $value === 'Registered') {
+                        $fail('Ang mga resident na edad 15 pababa ay hindi maaaring maging Registered voter.');
+                    }
+                },
+            ],
+            'residency_status' => 'required',
+            'household_id' => 'required|exists:households,id',
         ]);
 
-        Resident::create($validated);
+        // I-generate ang format na BR-YY-XXXX-XXXX
+        $year = date('y'); // Halimbawa: '26' para sa 2026
 
-        return redirect()
-            ->route('residents.index')
-            ->with('success', 'New resident created successfully.');
+        // I-generate ang random numbers
+        $generateNumber = function () {
+            $part1 = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            $part2 = str_pad(random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            return $part1 . '-' . $part2;
+        };
+
+        $residentNumber = "BR-{$year}-" . $generateNumber();
+
+        // Siguraduhin na UNIQUE ang generated number (check sa database)
+        while (\App\Models\Resident::where('resident_number', $residentNumber)->exists()) {
+            $residentNumber = "BR-{$year}-" . $generateNumber();
+        }
+
+        // Save sa database
+        $resident = new \App\Models\Resident($request->all());
+        $resident->resident_number = $residentNumber;
+        $resident->save();
+
+        return redirect()->route('residents.index')->with('success', 'Resident added successfully.');
     }
 
     /**
@@ -150,8 +178,18 @@ class ResidentController extends Controller
             'middle_name' => ['nullable', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'suffix' => ['nullable', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('residents', 'email')->ignore($resident->id)],
-            'contact_number' => ['required', 'string', 'max:255'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('residents', 'email')->ignore($resident->id)
+            ],
+            'contact_number' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('residents', 'contact_number')->ignore($resident->id)
+            ],
             'birthdate' => ['required', 'date'],
             'gender' => ['required', Rule::in(['Male', 'Female'])],
             'civil_status' => ['required', Rule::in(['Single', 'Married', 'Widowed', 'Separated', 'Divorced'])],
@@ -176,23 +214,40 @@ class ResidentController extends Controller
      */
     public function destroy(string $id)
     {
-        $this->authorize('residents.delete');
+        $user = auth()->user();
 
-        $resident = Resident::findOrFail($id);
-        $resident->delete();
+        // 1. I-check ang role gamit ang official relationship
+        $roleId = $user->official ? $user->official->role_id : null;
+        $isAdminOrSecretary = in_array($roleId, [1, 3]);
 
-        if (request()->ajax()) {
-            return response()->json(['success' => 'Resident soft-deleted successfully.']);
+        if (!$isAdminOrSecretary) {
+            return response()->json(['error' => 'Hindi ka awtorisado na mag-delete.'], 403);
         }
 
-        return redirect()
-            ->route('residents.index')
-            ->with('success', 'Resident deactivated successfully.');
+        // 2. I-check kung sariling account ang idedelete
+        $userResidentId = $user->official ? $user->official->resident_id : null;
+        if ($userResidentId && $userResidentId == $id) {
+            return response()->json(['error' => 'Hindi mo maaaring i-delete ang sarili mong account.'], 403);
+        }
+
+        $resident = Resident::findOrFail($id);
+        $resident->delete(); // Ito ay magti-trigger ng soft delete
+
+        return response()->json(['success' => 'Resident deactivated successfully.']);
     }
 
     public function getResidents(Request $request)
     {
-        $residents = Resident::with(['household.purok']);
+
+        $user = auth()->user();
+
+        // Dito natin kukunin ang role_id mula sa 'official' table
+        // Gagamit tayo ng optional chaining (?) para iwas error kung walang official record
+        $roleId = $user->official ? $user->official->role_id : null;
+
+        // Ngayon, i-check natin kung 1 o 3 ang role_id
+        $isAdminOrSecretary = $user && in_array($roleId, [1, 3]);
+        $residents = Resident::with(['household.purok'])->withTrashed();
 
         // Apply custom filters (not search - Yajra handles search automatically)
         if ($request->has('gender') && $request->input('gender')) {
@@ -269,18 +324,30 @@ class ResidentController extends Controller
                         return '<span class="badge p-2 bg-info text-dark">' . ($status ?: 'Unknown') . '</span>' . $deletedBadge;
                 }
             })
-            ->addColumn('action', function ($resident) {
-                return '<div class="d-flex gap-1">
-                    <a href="' . route('residents.edit', $resident->id) . '" class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Edit">
-                        <i class="bi bi-pencil" style="font-size:13px;"></i>
-                    </a>
-                    <a href="' . route('residents.edit', ['resident' => $resident->id, 'section' => 'status']) . '" class="btn btn-sm btn-light" style="border-radius:6px;padding:3px 8px;" title="Update Status">
-                        <i class="bi bi-shield-fill" style="font-size:13px;"></i>
-                    </a>
-                    <a href="' . route('residents.edit', ['resident' => $resident->id, 'section' => 'deactivate']) . '" class="btn btn-sm btn-light text-danger" style="border-radius:6px;padding:3px 8px;" title="Deactivate">
-                        <i class="bi bi-person-x-fill" style="font-size:13px;"></i>
-                    </a>
-                </div>';
+            ->addColumn('action', function ($resident) use ($isAdminOrSecretary) {
+                $user = auth()->user();
+
+                $userResidentId = $user->official ? $user->official->resident_id : null;
+
+                $editBtn = !$resident->trashed()
+                    ? '<button type="button" class="btn btn-sm btn-light border" style="border-radius:6px;padding:3px 8px;" onclick="openEditModal(\'' . $resident->id . '\')" title="Edit"><i class="bi bi-pencil" style="font-size:13px;"></i></button>'
+                    : '';
+
+                $actionBtn = '';
+
+                $isSelf = ($userResidentId && $userResidentId == $resident->id);
+
+                if ($isAdminOrSecretary && !$isSelf) {
+                    if ($resident->trashed()) {
+                        // Kung deleted: Restore button lang
+                        $actionBtn = '<button type="button" class="btn btn-sm btn-light text-success border" style="border-radius:6px;padding:3px 8px;" onclick="confirmRestore(\'' . $resident->id . '\')" title="Restore"><i class="bi bi-arrow-counterclockwise" style="font-size:13px;"></i></button>';
+                    } else {
+                        // Kung active: Delete button
+                        $actionBtn = '<button type="button" class="btn btn-sm btn-light text-danger border" style="border-radius:6px;padding:3px 8px;" onclick="confirmDelete(\'' . $resident->id . '\')" title="Delete"><i class="bi bi-trash" style="font-size:13px;"></i></button>';
+                    }
+                }
+
+                return '<div class="d-flex gap-1">' . $editBtn . $actionBtn . '</div>';
             })
             ->rawColumns(['voter', 'civil_status', 'action'])
             ->make(true);
@@ -368,5 +435,55 @@ class ResidentController extends Controller
 
         $pdf = PDF::loadView('residents.export-pdf', $data);
         return $pdf->download('residents-list-' . now()->format('Y-m-d-His') . '.pdf');
+    }
+
+    // Sa loob ng ResidentController class
+
+    public function getDashboardStats()
+    {
+        $totalResidents = Resident::count();
+        $activeCount = Resident::where('residency_status', 'Active')->count();
+        $deceasedCount = Resident::where('residency_status', 'Deceased')->count();
+        $transferredCount = Resident::where('residency_status', 'Transferred')->count();
+
+        // Percentages
+        $activePercentage = $totalResidents > 0 ? number_format(($activeCount / $totalResidents) * 100, 1) : 0;
+        $deceasedPercentage = $totalResidents > 0 ? number_format(($deceasedCount / $totalResidents) * 100, 1) : 0;
+        $transferredPercentage = $totalResidents > 0 ? number_format(($transferredCount / $totalResidents) * 100, 1) : 0;
+
+        // Gender (Active Only)
+        $maleCount = Resident::where('residency_status', 'Active')->where('gender', 'Male')->count();
+        $femaleCount = Resident::where('residency_status', 'Active')->where('gender', 'Female')->count();
+
+        // Age Data
+        $ageGroups = ['0-12', '13-17', '18-24', '25-34', '35-49', '50-64', '65+'];
+        $ageData = [];
+        foreach ($ageGroups as $group) {
+            $range = explode('-', str_replace('+', '', $group));
+            $query = Resident::query();
+            if ($group === '65+') {
+                $query->whereRaw("TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= 65");
+            } else {
+                $query->whereRaw("TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) BETWEEN ? AND ?", [$range[0], $range[1]]);
+            }
+            $ageData[] = $query->count();
+        }
+
+        // Voter Status
+        $registeredVoters = Resident::whereRaw("TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= 18")->where('voter_status', 'Registered')->count();
+        $unregisteredVoters = Resident::whereRaw("TIMESTAMPDIFF(YEAR, birthdate, CURDATE()) >= 18")->where('voter_status', 'Unregistered')->count();
+
+        return response()->json([
+            'totalResidents' => number_format($totalResidents),
+            'activeCount' => number_format($activeCount),
+            'deceasedCount' => number_format($deceasedCount),
+            'transferredCount' => number_format($transferredCount),
+            'activePercentage' => $activePercentage,
+            'deceasedPercentage' => $deceasedPercentage,
+            'transferredPercentage' => $transferredPercentage,
+            'genderData' => [$maleCount, $femaleCount],
+            'ageData' => $ageData,
+            'voterData' => [$registeredVoters, $unregisteredVoters]
+        ]);
     }
 }
