@@ -216,31 +216,38 @@ class ResidentController extends Controller
     {
         $user = auth()->user();
 
-        $userResidentId = $user->official ? $user->official->resident_id : null;
+        // 1. I-check ang role gamit ang official relationship
+        $roleId = $user->official ? $user->official->role_id : null;
+        $isAdminOrSecretary = in_array($roleId, [1, 3]);
 
+        if (!$isAdminOrSecretary) {
+            return response()->json(['error' => 'Hindi ka awtorisado na mag-delete.'], 403);
+        }
+
+        // 2. I-check kung sariling account ang idedelete
+        $userResidentId = $user->official ? $user->official->resident_id : null;
         if ($userResidentId && $userResidentId == $id) {
             return response()->json(['error' => 'Hindi mo maaaring i-delete ang sarili mong account.'], 403);
         }
 
         $resident = Resident::findOrFail($id);
-        $resident->delete();
+        $resident->delete(); // Ito ay magti-trigger ng soft delete
 
-        if (request()->ajax()) {
-            return response()->json(['success' => 'Resident soft-deleted successfully.']);
-        }
-
-        return redirect()
-            ->route('residents.index')
-            ->with('success', 'Resident deactivated successfully.');
+        return response()->json(['success' => 'Resident deactivated successfully.']);
     }
 
     public function getResidents(Request $request)
     {
 
         $user = auth()->user();
-        // I-set ang role logic mo dito (halimbawa lang ito, pakipalitan depende sa logic mo)
-        $isAdminOrSecretary = $user && in_array($user->role_id, [1, 3]);
-        $residents = Resident::with(['household.purok']);
+
+        // Dito natin kukunin ang role_id mula sa 'official' table
+        // Gagamit tayo ng optional chaining (?) para iwas error kung walang official record
+        $roleId = $user->official ? $user->official->role_id : null;
+
+        // Ngayon, i-check natin kung 1 o 3 ang role_id
+        $isAdminOrSecretary = $user && in_array($roleId, [1, 3]);
+        $residents = Resident::with(['household.purok'])->withTrashed();
 
         // Apply custom filters (not search - Yajra handles search automatically)
         if ($request->has('gender') && $request->input('gender')) {

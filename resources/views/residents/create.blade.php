@@ -135,7 +135,6 @@
             function updateFieldsUI() {
                 if (!birthdateInput.value) return;
 
-                // 1. Calculate Age
                 let birthdate = new Date(birthdateInput.value);
                 let today = new Date();
                 let age = today.getFullYear() - birthdate.getFullYear();
@@ -143,28 +142,21 @@
                     age--;
                 }
 
-                // 2. Logic para sa Civil Status
-                // 17 pababa = Single lang
-                // 18 pataas = Pwede na lahat
+                // Civil Status Logic
+                const civilSelect = document.querySelector('select[name="civil_status"]');
                 const restrictedCivil = ['Married', 'Widowed', 'Separated', 'Divorced'];
-
                 Array.from(civilSelect.options).forEach(option => {
-                    if (age <= 17 && restrictedCivil.includes(option.value)) {
-                        option.disabled = true;
-                    } else {
-                        option.disabled = false;
-                    }
+                    option.disabled = (age <= 17 && restrictedCivil.includes(option.value));
                 });
+                if (age <= 17 && restrictedCivil.includes(civilSelect.value)) civilSelect.value = 'Single';
 
-                // Visual Cue: Light red background kung 17 pababa at bawal ang napili
-                if (age <= 17 && restrictedCivil.includes(civilSelect.value)) {
-                    civilSelect.style.backgroundColor = "#fee2e2"; // Red background
-                    civilSelect.style.border = "2px solid #dc3545"; // Bold Red Border
-                    civilSelect.value = 'Single'; // Force reset
-                } else {
-                    civilSelect.style.backgroundColor = "#ffffff";
-                    civilSelect.style.border = "1px solid #ced4da";
-                }
+                // Voter Status Logic
+                const voterSelect = document.querySelector('select[name="voter_status"]');
+                const restrictedVoter = ['Registered', 'Suspended'];
+                Array.from(voterSelect.options).forEach(option => {
+                    option.disabled = (age <= 15 && restrictedVoter.includes(option.value));
+                });
+                if (age <= 15 && restrictedVoter.includes(voterSelect.value)) voterSelect.value = 'Unregistered';
             }
 
             birthdateInput.addEventListener('change', updateFieldsUI);

@@ -655,14 +655,18 @@ Route: GET /residents → route('residents.index')
                 $('.badge-transfer').text(data.transferredPercentage + '%');
 
                 // 2. Update Charts (Assuming genderChart, ageChart, voterChart are global)
-                genderChart.data.datasets[0].data = data.genderData;
-                genderChart.update();
-
-                ageChart.data.datasets[0].data = data.ageData;
-                ageChart.update();
-
-                voterChart.data.datasets[0].data = data.voterData;
-                voterChart.update();
+                if (typeof genderChart !== 'undefined') {
+                    genderChart.data.datasets[0].data = data.genderData;
+                    genderChart.update();
+                }
+                if (typeof ageChart !== 'undefined') {
+                    ageChart.data.datasets[0].data = data.ageData;
+                    ageChart.update();
+                }
+                if (typeof voterChart !== 'undefined') {
+                    voterChart.data.datasets[0].data = data.voterData;
+                    voterChart.update();
+                }
 
                 // 3. Update Table Header Counter
                 $('.table-header .heading .badge').text(data.totalResidents);
@@ -673,15 +677,15 @@ Route: GET /residents → route('residents.index')
             @if (session('success'))
                 // Mag-create ng toast element via JavaScript
                 let toast = $(`<div class="toast align-items-center text-white bg-success border-0 position-fixed top-0 end-0 m-3" style="z-index: 1055;" role="alert">
-                                                                        <div class="d-flex">
-                                                                            <div class="toast-body"><i class="bi bi-check-circle me-2"></i> {{ session('success') }}</div>
-                                                                        </div>
-                                                                    </div>
-                                                                `);
+                                                                                                        <div class="d-flex">
+                                                                                                            <div class="toast-body"><i class="bi bi-check-circle me-2"></i> {{ session('success') }}</div>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                `);
                 $('body').append(toast);
                 toast.fadeIn().delay(3000).fadeOut(function () { $(this).remove(); });
             @endif
-                    });
+                                    });
     </script>
     <div class="modal fade" id="editResidentModal" tabindex="-1" aria-labelledby="editResidentModalLabel"
         aria-hidden="true">
