@@ -18,14 +18,24 @@ class UserSeeder extends Seeder
         $officials = Official::with('resident')->get();
 
         foreach ($officials as $official) {
-            User::factory()->create([
-                'official_id' => $official->id,
-                'email' => strtolower(
-                    $official->resident->first_name[0] . '.' . str_replace(' ', '', $official->resident->last_name)
-                ) . '@barangaynewera.gov.ph',
-                'password' => Hash::make('password'),
-                'status' => 'Inactive',
-            ]);
+            User::updateOrCreate(
+                ['official_id' => $official->id],
+                [
+                    'email' => $this->makeEmail($official),
+                    'password' => Hash::make('password'),
+                    'status' => 'Inactive',
+                ]
+            );
         }
+    }
+
+    private function makeEmail(Official $official): string
+    {
+        $resident = $official->resident;
+        $localPart = strtolower(
+            $resident->first_name[0] . '.' . str_replace(' ', '', $resident->last_name) . '.' . str_replace('-', '', $official->id)
+        );
+
+        return $localPart . '@barangaynewera.gov.ph';
     }
 }

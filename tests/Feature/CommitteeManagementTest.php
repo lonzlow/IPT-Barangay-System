@@ -351,6 +351,8 @@ test('committee photo and video records can upload media files', function () {
         ])
         ->assertCreated();
 
+    expect($photoResponse->json('data.file_path'))->toStartWith('/storage/committee-media/');
+
     $photoPath = str($photoResponse->json('data.file_path'))->after('/storage/')->toString();
     Storage::disk('public')->assertExists($photoPath);
 
@@ -362,6 +364,8 @@ test('committee photo and video records can upload media files', function () {
             'media_file' => UploadedFile::fake()->create('patrol.mp4', 1024, 'video/mp4'),
         ])
         ->assertCreated();
+
+    expect($videoResponse->json('data.file_path'))->toStartWith('/storage/committee-media/');
 
     $videoPath = str($videoResponse->json('data.file_path'))->after('/storage/')->toString();
     Storage::disk('public')->assertExists($videoPath);

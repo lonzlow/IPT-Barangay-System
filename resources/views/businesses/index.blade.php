@@ -838,9 +838,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 case 'edit':
                     await loadBusinessForEdit(businessId);
                     break;
-                case 'issue':
-                    await issuePermit(businessId, today(), annualExpiry(today()));
-                    break;
                 case 'renew':
                     openRenewModal(businessId, button.dataset.permitId);
                     break;

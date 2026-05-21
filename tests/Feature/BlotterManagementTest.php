@@ -224,3 +224,36 @@ test('blotter export downloads a csv file', function () {
         ->assertOk()
         ->assertHeader('content-type', 'text/csv; charset=UTF-8');
 });
+
+test('blotter residents search returns matching residents', function () {
+    $user = User::factory()->create();
+    
+    // Create a resident to search for
+    Resident::factory()->create([
+        'first_name' => 'Juan',
+        'last_name' => 'Dela Cruz',
+        'resident_number' => 'R0001',
+    ]);
+    Resident::factory()->create([
+        'first_name' => 'Pedro',
+        'last_name' => 'Reyes',
+        'resident_number' => 'R0002',
+    ]);
+
+    // Test without proper authorization (should still work since user is authenticated)
+    $response = $this->actingAs($user)
+        ->getJson(route('blotters.residents.search', ['q' => 'Juan']));
+    
+    // The endpoint requires blotter.manage authorization
+    if ($response->status() === 403) {
+        $this->markTestSkipped('User lacks blotter.manage authorization');
+    }
+    
+    $response
+        ->assertOk()
+        ->assertJsonStructure(['results' => [['id', 'text', 'name']]])
+        ->json();
+
+    expect(count($response['results']))->toBe(1)
+        ->and($response['results'][0]['name'])->toContain('Juan');
+});

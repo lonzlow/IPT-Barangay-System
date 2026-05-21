@@ -160,15 +160,16 @@
                     @else
                         <div class="row g-3">
                             @foreach($recordGroups[$key] as $record)
+                                @php($fileUrl = $record->file_url)
                                 <div class="col-md-6 col-xl-4">
                                     <div class="record-card">
-                                        @if($record->file_path && $record->record_type === 'photo')
+                                        @if($fileUrl && $record->record_type === 'photo')
                                             <div class="record-preview">
-                                                <img src="{{ $record->file_path }}" alt="{{ $record->title }}">
+                                                <img src="{{ $fileUrl }}" alt="{{ $record->title }}">
                                             </div>
-                                        @elseif($record->file_path && $record->record_type === 'video')
+                                        @elseif($fileUrl && $record->record_type === 'video')
                                             <div class="record-preview">
-                                                <video src="{{ $record->file_path }}" controls preload="metadata"></video>
+                                                <video src="{{ $fileUrl }}" controls preload="metadata"></video>
                                             </div>
                                         @endif
                                         <div class="d-flex justify-content-between gap-2">
@@ -196,8 +197,8 @@
                                             @if($record->partner_name)<span>Partner: {{ $record->partner_name }}</span>@endif
                                             @if($record->status)<span>Status: {{ $record->status }}</span>@endif
                                         </div>
-                                        @if($record->file_path)
-                                            <a href="{{ $record->file_path }}" class="btn btn-sm btn-outline-primary mt-3" target="_blank" rel="noopener">
+                                        @if($fileUrl)
+                                            <a href="{{ $fileUrl }}" class="btn btn-sm btn-outline-primary mt-3" target="_blank" rel="noopener">
                                                 <i class="bi bi-link-45deg me-1"></i> Open File
                                             </a>
                                         @endif

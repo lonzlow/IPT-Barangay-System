@@ -119,7 +119,7 @@ class CommitteeRecordController extends Controller
             'path' => $path,
         ];
 
-        $validated['file_path'] = Storage::disk('public')->url($path);
+        $validated['file_path'] = '/storage/' . $path;
         $validated['metadata'] = $metadata;
 
         return $validated;
@@ -127,7 +127,15 @@ class CommitteeRecordController extends Controller
 
     private function deleteStoredMedia(?string $filePath): void
     {
-        if (! $filePath || ! Str::startsWith($filePath, '/storage/committee-media/')) {
+        if (! $filePath) {
+            return;
+        }
+
+        if (Str::startsWith($filePath, ['http://localhost/storage/', 'https://localhost/storage/'])) {
+            $filePath = parse_url($filePath, PHP_URL_PATH) ?: $filePath;
+        }
+
+        if (! Str::startsWith($filePath, '/storage/committee-media/')) {
             return;
         }
 

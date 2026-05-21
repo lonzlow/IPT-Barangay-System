@@ -15,6 +15,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\BusinessController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\SignatureController;
+use App\Support\AuthorizedHome;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -22,7 +23,7 @@ Route::get('/', fn() => Auth::check()
     ? redirect()->route('dashboard')
     : redirect()->route('login'));
 
-Route::get('/dashboard', fn() => redirect()->route('residents.index'))
+Route::get('/dashboard', fn() => redirect()->route(AuthorizedHome::routeName(Auth::user())))
     ->middleware('auth')
     ->name('dashboard');
 

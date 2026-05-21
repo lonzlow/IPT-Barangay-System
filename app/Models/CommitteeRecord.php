@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class CommitteeRecord extends Model
 {
@@ -76,6 +77,19 @@ class CommitteeRecord extends Model
     public function getTypeLabelAttribute(): string
     {
         return self::TYPES[$this->record_type] ?? str($this->record_type)->headline()->toString();
+    }
+
+    public function getFileUrlAttribute(): ?string
+    {
+        if (! $this->file_path) {
+            return null;
+        }
+
+        if (Str::startsWith($this->file_path, ['http://localhost/storage/', 'https://localhost/storage/'])) {
+            return parse_url($this->file_path, PHP_URL_PATH) ?: $this->file_path;
+        }
+
+        return $this->file_path;
     }
 
     /**

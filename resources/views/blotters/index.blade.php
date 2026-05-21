@@ -688,6 +688,8 @@ async function searchResidents(input) {
     section.querySelector("[data-resident-id]").value = "";
     input.classList.remove("is-invalid");
 
+    console.log("Searching residents for query:", query);
+
     if (query.length < 2) {
         results.classList.add("d-none");
         results.innerHTML = "";
@@ -697,24 +699,40 @@ async function searchResidents(input) {
     const searchUrl = new URL("{{ route('blotters.residents.search') }}", window.location.origin);
     searchUrl.searchParams.set("q", query);
 
+    console.log("Search URL:", searchUrl.toString());
+
     let payload = null;
     if (axiosInstance) {
+        console.log("Using axios for search request");
         const response = await axiosInstance.get(searchUrl.toString());
         payload = response.data;
     } else {
+        console.log("Using fetch for search request");
         const response = await fetch(searchUrl.toString(), {
             headers: {
                 "Accept": "application/json",
                 "X-Requested-With": "XMLHttpRequest",
             },
         });
+        
+        console.log("Response status:", response.status);
+        
+        if (!response.ok) {
+            const text = await response.text();
+            console.error("Response text:", text);
+            throw new Error(`Search request failed with status ${response.status}`);
+        }
+        
         payload = await response.json();
     }
+
+    console.log("Payload received:", payload);
 
     const rows = payload?.results || [];
     results.innerHTML = "";
 
     if (!rows.length) {
+        console.log("No residents found for query:", query);
         const option = new Option("No residents found", "");
         option.disabled = true;
         results.appendChild(option);
@@ -722,6 +740,7 @@ async function searchResidents(input) {
         return;
     }
 
+    console.log("Found residents:", rows);
     rows.forEach((resident) => {
         const option = new Option(resident.text, resident.id);
         option.dataset.name = resident.name;
@@ -902,11 +921,12 @@ let residentSearchTimer = null;
 blotterForm.addEventListener("input", (event) => {
     if (!event.target.classList.contains("resident-search")) return;
     clearTimeout(residentSearchTimer);
-    residentSearchTimer = setTimeout(() => searchResidents(event.target).catch(() => {
+    residentSearchTimer = setTimeout(() => searchResidents(event.target).catch((error) => {
+        console.error("Search error:", error);
         const section = event.target.closest(".party-card");
         const results = section.querySelector(".resident-results");
         results.innerHTML = "";
-        const option = new Option("Unable to load residents", "");
+        const option = new Option("Unable to load residents: " + error.message, "");
         option.disabled = true;
         results.appendChild(option);
         results.classList.remove("d-none");
